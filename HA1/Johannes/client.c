@@ -1,66 +1,52 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <memory.h>
 #include <unistd.h>
-
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 int main(int argc, char *argv[]) {
 
-    if(argc != 3){
-        fprintf(stderr, "%i Argumente übergeben, Erwartet nur 2, nähmlich IP oder DNS und Port", (argc-1));
-        perror("");
-        exit(1);
-    }
-    //Localen socket erstellen
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    char *ipdns = argv[1];
+    char *port = argv[2];
 
-    //Port und ipOrDNS holen
-    char *ipOrDNS = argv[1];
-    char *portChar = argv[2];
+    struct addrinfo *servinfo;
+    struct addrinfo hints;
 
-    //Prüfen, dass der port nummer Nur zahlen enthält
-    size_t len;
-    len = strlen(portChar);
-    for(int i=0;i<len;i++)
-    {
-        if(portChar[i] < 48 || portChar[i] > 57)
-        {
-            perror("Not a valid port number");
-            exit(1);
-        }
-    }
+    int csocket = socket(AF_UNSPEC, SOCK_STREAM, 0); //socket()
 
-    struct addrinfo socket_to_conect_config; //Minimale Konfiguration für die Verbindung
-    memset(&socket_to_conect_config, 0, sizeof(socket_to_conect_config)); //Setzen die zu null
-    socket_to_conect_config.ai_family = AF_INET;
-    socket_to_conect_config.ai_socktype = SOCK_STREAM;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
+    hints.ai_flags = AI_PASSIVE; // fill in my IP for me
 
-    struct addrinfo *connection_results;
-    int result = getaddrinfo(ipOrDNS, portChar, &socket_to_conect_config, &connection_results);
-
-    if(result != 0){
-        perror("Ungültige Eingaben, prüfen sie die Eingaben");
+    int status = getaddrinfo(ipdns, port, &hints, &servinfo);
+    if(status != 0) {
+        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
         exit(1);
     }
 
-    //Wir nehmen das erste element von dem results und seine Adresse
-    struct sockaddr *first_result = connection_results->ai_addr;
-    socklen_t first_result_addr_len = connection_results->ai_addrlen;
-
-    //Verbindung zwischen client_socket, mit dem first_result, und wir übergeben die first_result_addr_len
-    int connection = connect(client_socket, first_result, first_result_addr_len);
+    int s = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    int connection = connect(s, servinfo->ai_addr, servinfo->ai_addrlen);
     if(connection == -1){
-        perror("Fehler bei der Verbindung");
+        perror("connection error");
         exit(1);
     }
-    char response_from_server[3000];
-    recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
-    printf("%s", response_from_server);
-    close(client_socket);
 
-    //Free
-    freeaddrinfo(connection_results);
+    char response[1000];
+    int receive = recv(s, &response, sizeof(response), 0);
+    if(receive == -1){
+        perror("receive error");
+        exit(1);
+    }
+
+    printf("%s", response);
+
+    close(s);
+    freeaddrinfo(servinfo); // free the linked-list
     return 0;
 }
