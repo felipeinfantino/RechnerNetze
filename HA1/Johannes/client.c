@@ -48,14 +48,16 @@ int main(int argc, char *argv[]) {
         break;
     }
 
-    char response[10000];    // TODO dynamic?
-    int receive = recv(sockfd, &response, sizeof(response), 0); // get message
-    if(receive == -1){
-        perror("receive error");
-        exit(1);
+    char response[1];
+    int receive = recv(sockfd, &response, sizeof(response), 0); // get first symbol
+    while(receive != 0) { // get next symbol until there aren't any left
+        if(receive == -1){
+            perror("receive error");
+            exit(1);
+        }
+        printf("%s", response);
+        receive = recv(sockfd, &response, sizeof(response), 0);
     }
-
-    printf("%s", response);
 
     close(sockfd);   //  close socket
     freeaddrinfo(servinfo); // free the linked-list
