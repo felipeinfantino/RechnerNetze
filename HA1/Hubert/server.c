@@ -1,4 +1,3 @@
-
 #include <sys/socket.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -8,26 +7,25 @@
 #include <time.h>
 #include <sys/stat.h>
 
-char* get_random_zeile(const char *filename,FILE *file) {
+char* get_random_quote(FILE *file) {
 	char* line = malloc(sizeof(char)*512);
 	
-    //Wir zählen die Anzahl von Zahlen
-	int anzahl_zeilen = 0;
+    //count the number of quotes
+	int number_of_quotes = 0;
 	while(!feof(file)){
 		fgets(line, 512, file);
-		anzahl_zeilen++;
+		number_of_quotes++;
 	}
 
-	//Wir berechen eine random Zahl und geben die Zeile zurück
-    //Initialisierung von rand()
-	srand(time(NULL));
-	int random_zeile = rand() % anzahl_zeilen;
-	//Reset File Positon
+    //use both time and PID to generate seed, else server is stuck in returning same quotes
+	srand(time(0)+getpid());
+	int random_quote = rand() % number_of_quotes;
+
+	//prepare file position for selecting quote
 	fseek (file, 0, SEEK_SET);
-	for(int i=0;i<anzahl_zeilen;i++){
+	for(int i=0;i<number_of_quotes;i++){
 		fgets(line, 512, file);
-		if(i == random_zeile){
-			fclose(file);
+		if(i == random_quote){
 			return line;
 		}
 	}
@@ -37,25 +35,25 @@ char* get_random_zeile(const char *filename,FILE *file) {
 
 int main(int argc, char* argv[]){
 
-    //Wir holen die argumente, prüfen dass es genau argumente übergegeben wurden.
+    //check for correct number of arguments
 	if(argc != 3){
-		fprintf(stderr, "%i Argumente übergeben, Erwartet nur 2, nähmlich IP oder DNS und Port", (argc-1));
+		fprintf(stderr, "%i arguments inputed, 3 are needed for correct program execution", (argc-1));
 		perror("");
 		exit(1);
 	}
 
-    //Port und filename
+    //port and filename
 	char *port = argv[1];
-	const char *filename = argv[2];
+	char *filename = argv[2];
 
-	//Check whether file exists and open it
+	//check whether file exists
 	FILE *file = fopen(filename, "rt");
 	if(file == NULL){
 		perror("Error");
 		exit(1);
 	}
 
-	//Check if file is empty
+	//check if file is empty
 	struct stat fileStat;
 	stat(filename, &fileStat);
 
@@ -64,62 +62,67 @@ int main(int argc, char* argv[]){
 		return(0);
 	}
 
+    //declare needed structures
 	struct addrinfo server_info_config;
 	struct addrinfo* results;
 
-    memset(&server_info_config, 0, sizeof(server_info_config)); //Initialisieren mit NULL
-    //Befüllen die notwendige Einträge
+    //initialize server_info_config 
+    memset(&server_info_config, 0, sizeof(server_info_config)); 
     server_info_config.ai_family = AF_INET;
     server_info_config.ai_socktype = SOCK_STREAM;
 
-    int result = getaddrinfo("localhost", port , &server_info_config, &results);
+    //get host information and load it into *results
+    if(getaddrinfo("localhost", port , &server_info_config, &results)!=0){
+        perror("");
+        exit(1);
+    }
 
-    //Socket erzeugen, domain ist AF_INET, type ist SOCK_STREAM und Prokoll ist 0, wir lesen das aber von dem results
+    //create new socket using data obtained with getaddrinfo()
     int server_socket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
 
-    //Wir rufen bind auf, somit weisen wir eine adresse zu dem socket zu. Die Adresse holen wir uns von dem results
-    int erfolgreiche_bind = bind(server_socket, results->ai_addr, results->ai_addrlen);
-
-    if(erfolgreiche_bind == -1){
-    	perror("Konnte nicht die Adresse zu dem Socket zuweisen");
-    	exit(1);
+    //bind the new socket to a port
+    if(bind(server_socket, results->ai_addr, results->ai_addrlen)==-1){
+        perror("Couldn't bind the socket to this port");
+        exit(1);
     }
 
-    //Nach dem bind wir fangen an, requests zu erwarten mit listen()
-    int erfolgreiche_listen = listen(server_socket, 10);
+    //prepare the socket for incoming connections
+    if(listen(server_socket, 10)==-1){
+       perror("Error while listening");
+       exit(1);
+   }
 
-    if(erfolgreiche_listen == -1){
-    	perror("Fehler beim listen()");
-    	exit(1);
-    }
-
-    //Dann erstellen wir ein sockaddr_storage, wo wir die Info von Client speichern werden , und natürlich den client_socket
+    //start an infinite loop which monitors for new connections and handles it (the ~server~ program)
+   while(1){
+    //construct sockaddr_storage for storing client information
     struct sockaddr_storage client_info;
-    socklen_t client_info_length = sizeof(client_info); // Die größe von dem client info struct
+    socklen_t client_info_length = sizeof(client_info); 
 
+    //aceept the newest connection and load it's data to the client_info struct
     int client_socket = accept(server_socket, (struct sockaddr *) &client_info, &client_info_length);
-
-    //So jetzt das wir den client_socket haben, wir nehmen eine random Zeile von der übergegebene File und senden das
-    char *random_zeile = get_random_zeile(filename,file);
-    size_t len_from_zeile = strlen(random_zeile);
-
-    if(random_zeile == NULL){
-    	perror("Fehler beim lesen der Datei");
-    	exit(1);
+    if (client_socket == -1) {
+        perror("Error while accepting the connection");
+        exit(1);
     }
 
-    //Senden
-    ssize_t bytes_sent = send(client_socket, random_zeile, len_from_zeile,0);
-    if(bytes_sent == -1){
-    	perror("Fehler beim senden");
-    	exit(1);
+    //fork a new process to handle this client 
+    if(!fork()){    //child process
+        //fetch a random quote from the TXT
+        char *random_quote = get_random_quote(file);
+        size_t quote_length = strlen(random_quote);
+        //close the "listener" socket in child process - no need for child to wait monitor for new incomming connections
+        close(server_socket);
+        //send a random quote to the client
+        send(client_socket, random_quote, quote_length+1,0);
+        printf("Sent quote: %s", random_quote );
+        //after sending the quote, close the socket in child process
+        close(client_socket);
+        exit(0);
     }
-
-    //close sockets
+   //this client has been already handled by the server, close this connection
     close(client_socket);
-    close(server_socket);
-
-    //free den addrinfo
-    freeaddrinfo(results);
 }
-
+//clear the memory and close the file stream. this server doesn't support "safe quitting" though, needs to be killed by the OS
+freeaddrinfo(results);
+fclose(file);
+}
