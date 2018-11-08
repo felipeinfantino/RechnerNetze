@@ -1,75 +1,65 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <memory.h>
 #include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 
 int main(int argc, char *argv[]) {
 
-    if(argc != 3){
-        fprintf(stderr, "%i Argumente übergeben, Erwartet nur 2, nähmlich IP oder DNS und Port", (argc-1));
-        perror("");
+    char *ipdns = argv[1];
+    char *port = argv[2];
+    int sockfd;
+    struct addrinfo hints, *servinfo, *p;
+    struct sockaddr_storage their_addr;
+    int rv;
+    int numbytes;
+
+    if (argc != 3) {
+        fprintf(stderr,"usage: talker hostname message\n");
         exit(1);
     }
-    //Localen socket erstellen
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    //Port und ipOrDNS holen
-    char *ipOrDNS = argv[1];
-    char *portChar = argv[2];
-
-    //Prüfen, dass der port nummer Nur zahlen enthält
-    size_t len;
-    len = strlen(portChar);
-    for(int i=0;i<len;i++)
-    {
-        if(portChar[i] < 48 || portChar[i] > 57)
-        {
-            perror("Not a valid port number");
-            exit(1);
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    if ((rv = getaddrinfo(ipdns, port, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
+// loop through all the results and make a socket
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            perror("talker: socket");
+            continue;
         }
+        break;
     }
-
-    struct addrinfo socket_to_conect_config; //Minimale Konfiguration für die Verbindung
-    memset(&socket_to_conect_config, 0, sizeof(socket_to_conect_config)); //Setzen die zu null
-    socket_to_conect_config.ai_family = AF_INET;
-    socket_to_conect_config.ai_socktype = SOCK_STREAM;
-
-    struct addrinfo *connection_results;
-    int result = getaddrinfo(ipOrDNS, portChar, &socket_to_conect_config, &connection_results);
-
-    if(result != 0){
-        perror("Ungültige Eingaben, prüfen sie die Eingaben");
+    if (p == NULL) {
+        fprintf(stderr, "talker: failed to create socket\n");
+        return 2;
+    }
+    char *hello = "Hello Server";
+    if ((numbytes = sendto(sockfd, hello, strlen(hello), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+        perror("talker: sendto");
         exit(1);
     }
 
-    /*//Wir nehmen das erste element von dem results und seine Adresse
-    struct sockaddr *first_result = connection_results->ai_addr;
-    socklen_t first_result_addr_len = connection_results->ai_addrlen;
-
-    //Verbindung zwischen client_socket, mit dem first_result, und wir übergeben die first_result_addr_len
-    int connection = connect(client_socket, first_result, first_result_addr_len);
-    if(connection == -1){
-        perror("Fehler bei der Verbindung");
+    char buf[512];
+    socklen_t addr_len = sizeof their_addr;
+    if ((numbytes = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        perror("recvfrom");
         exit(1);
-    }*/
-
-    char response_from_server[512];
-    int receive = recv(client_socket, &response_from_server, sizeof(response_from_server)+1, 0);
-    while(receive != 0){
-    	if(receive == -1){
-    		perror("Fehler bei der Datenuberstragung");
-            exit(1);
-    	}
-    	printf("%s", response_from_server);
-    	receive = recv(client_socket, &response_from_server, sizeof(response_from_server)+1, 0);
     }
-    
-    close(client_socket);
+    printf("%s", buf);
 
-    //Free
-    freeaddrinfo(connection_results);
+    freeaddrinfo(servinfo);
+    printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
+    close(sockfd);
     return 0;
 }
