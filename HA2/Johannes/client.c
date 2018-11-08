@@ -1,75 +1,84 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <memory.h>
 #include <unistd.h>
-
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <time.h>
 
 int main(int argc, char *argv[]) {
 
-    if(argc != 3){
-        fprintf(stderr, "%i Argumente übergeben, Erwartet nur 2, nähmlich IP oder DNS und Port", (argc-1));
-        perror("");
+    char *ipdns = argv[1];
+    char *port = argv[2];
+    struct addrinfo *servinfo, *nextsocket;
+    struct addrinfo hints;
+
+    struct timespec start, stop;
+    double accum;
+
+    if( clock_gettime( CLOCK_REALTIME, &start) == -1 ) {
+        perror( "clock gettime" );
+        exit( EXIT_FAILURE );
+    }
+
+    if (argc != 3) { // test for right usage
+        fprintf(stderr,"usage: client hostname\n");
         exit(1);
     }
-    //Localen socket erstellen
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    //Port und ipOrDNS holen
-    char *ipOrDNS = argv[1];
-    char *portChar = argv[2];
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
+    hints.ai_flags = AI_PASSIVE; // fill in my IP for me
 
-    //Prüfen, dass der port nummer Nur zahlen enthält
-    size_t len;
-    len = strlen(portChar);
-    for(int i=0;i<len;i++)
-    {
-        if(portChar[i] < 48 || portChar[i] > 57)
-        {
-            perror("Not a valid port number");
-            exit(1);
+    int status = getaddrinfo(ipdns, port, &hints, &servinfo); // get Server info and safe in servinfo
+    if(status != 0) {
+        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+        exit(1);
+    }
+
+    int sockfd;
+    // go through all results to find one to connect
+    for(nextsocket = servinfo; nextsocket != NULL; nextsocket = nextsocket->ai_next) {
+        if ((sockfd = socket(nextsocket->ai_family, nextsocket->ai_socktype, nextsocket->ai_protocol)) == -1) {
+            perror("socket error");
+            continue;
         }
+        if (connect(sockfd, nextsocket->ai_addr, nextsocket->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("connection error");
+            continue;
+        }
+        break;
     }
 
-    struct addrinfo socket_to_conect_config; //Minimale Konfiguration für die Verbindung
-    memset(&socket_to_conect_config, 0, sizeof(socket_to_conect_config)); //Setzen die zu null
-    socket_to_conect_config.ai_family = AF_INET;
-    socket_to_conect_config.ai_socktype = SOCK_STREAM;
-
-    struct addrinfo *connection_results;
-    int result = getaddrinfo(ipOrDNS, portChar, &socket_to_conect_config, &connection_results);
-
-    if(result != 0){
-        perror("Ungültige Eingaben, prüfen sie die Eingaben");
+    char response[512];
+    int receive;
+    if ((receive = recv(sockfd, &response, sizeof(response), 0)) == -1){
+        perror("talker: recvfrom");
         exit(1);
     }
 
-    //Wir nehmen das erste element von dem results und seine Adresse
-    struct sockaddr *first_result = connection_results->ai_addr;
-    socklen_t first_result_addr_len = connection_results->ai_addrlen;
+    close(sockfd);   //  close socket
+    freeaddrinfo(servinfo); // free the linked-list
 
-    //Verbindung zwischen client_socket, mit dem first_result, und wir übergeben die first_result_addr_len
-    int connection = connect(client_socket, first_result, first_result_addr_len);
-    if(connection == -1){
-        perror("Fehler bei der Verbindung");
-        exit(1);
+    if( clock_gettime( CLOCK_REALTIME, &stop) == -1 ) {
+        perror( "clock gettime" );
+        exit( EXIT_FAILURE );
     }
-
-    char response_from_server[512];
-    int receive = recv(client_socket, &response_from_server, sizeof(response_from_server)+1, 0);
-    while(receive != 0){
-    	if(receive == -1){
-    		perror("Fehler bei der Datenuberstragung");
-            exit(1);
-    	}
-    	printf("%s", response_from_server);
-    	receive = recv(client_socket, &response_from_server, sizeof(response_from_server)+1, 0);
+    //check if more than 1 passed and correct nanoseconds
+    struct timespec tmpTime;
+    if ((stop.tv_nsec - start.tv_nsec) < 0) {
+        tmpTime.tv_nsec = 1000000000 + stop.tv_nsec - start.tv_nsec; //add 1s in nanoseconds
+    } else {
+        tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
+    accum = tmpTime.tv_nsec / 1000; //convert to ms
+    printf("%lf ms\n", accum);
     
-    close(client_socket);
-
-    //Free
-    freeaddrinfo(connection_results);
     return 0;
 }
