@@ -20,6 +20,9 @@ int main(int argc, char *argv[]) {
     char *ipOrDNS = argv[1];
     char *portChar = argv[2];
 
+    struct timespec start, stop;
+    double time;
+
     struct addrinfo socket_to_conect_config;
     memset(&socket_to_conect_config, 0, sizeof(socket_to_conect_config)); //Setzen die zu null
     socket_to_conect_config.ai_family = AF_INET;
@@ -27,10 +30,14 @@ int main(int argc, char *argv[]) {
 
 
     //Start timer
-    clockid_t id = CLOCK_MONOTONIC;
+    /*clockid_t id = CLOCK_MONOTONIC;
     struct timespec tp;
     clock_gettime(id, &tp);
-    __syscall_slong_t start_time = tp.tv_nsec;
+    __syscall_slong_t start_time = tp.tv_nsec;*/
+    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+        perror("clock gettime");
+        exit(EXIT_FAILURE);
+    }
 
     struct addrinfo* results;
     int result = getaddrinfo(ipOrDNS, portChar, &socket_to_conect_config, &results);
@@ -58,12 +65,25 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     //End timer
-    clock_gettime(id, &tp);
+    /*clock_gettime(id, &tp);
     __syscall_slong_t end_time = tp.tv_nsec;
     //Difference in nano seconds
     printf("Response : %s\n", response_from_server);
     printf("Difference %ld ns", end_time-start_time);
-
+*/
+    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+        perror("clock gettime");
+        exit(EXIT_FAILURE);
+    }
+    //check if more than 1 passed and correct nanoseconds
+    struct timespec tmpTime;
+    if ((stop.tv_nsec - start.tv_nsec) < 0) {
+        tmpTime.tv_nsec = 1000000000 + stop.tv_nsec - start.tv_nsec; //add 1s in nanoseconds
+    } else {
+        tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
+    }
+    time = tmpTime.tv_nsec / 1000; //convert to ms
+    printf("%lf ms\n", time);
 
     close(client_socket);
     //shutdown(client_socket, SHUT_RDWR);

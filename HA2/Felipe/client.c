@@ -51,12 +51,21 @@ void split_domain(char *httpLink, char* domain_buffer, char * pfad_buffer, char*
 
 
 int main(int argc, char *argv[]) {
+    struct timespec start, stop;
+    double time;
 
     if(argc != 2){
         fprintf(stderr, "%i Argumente übergeben, Erwartet nur das HTTP link", (argc-1));
         perror("");
         exit(1);
     }
+
+    //start timer
+    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+        perror("clock gettime");
+        exit(EXIT_FAILURE);
+    }
+
     //Localen socket erstellen
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -136,14 +145,28 @@ int main(int argc, char *argv[]) {
 
 
     //End timer
-    clock_gettime(id, &tp);
+    /*clock_gettime(id, &tp);
     __syscall_slong_t end_time = tp.tv_nsec;
+
 
     //Difference in nano seconds
     printf("Difference %ld ns", end_time-start_time);
+    */
+    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+        perror("clock gettime");
+        exit(EXIT_FAILURE);
+    }
+    //check if more than 1 passed and correct nanoseconds
+    struct timespec tmpTime;
+    if ((stop.tv_nsec - start.tv_nsec) < 0) {
+        tmpTime.tv_nsec = 1000000000 + stop.tv_nsec - start.tv_nsec; //add 1s in nanoseconds
+    } else {
+        tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
+    }
+    time = tmpTime.tv_nsec / 1000; //convert to ms
+    printf("%lf ms\n", time);
 
     close(client_socket);
-
     //Free
     freeaddrinfo(connection_results);
     return 0;
