@@ -1,11 +1,11 @@
 CC=gcc
 
-all: client server
+all: client clientudp
 
 client: client.c
 	$(CC) -o client client.c
-server: server.c
-	$(CC) -o server server.c
+clientudp: clientudp.c
+	$(CC) -o clientudp clientudp.c
 
 clean:
-	rm client server
+	rm client clientudp
