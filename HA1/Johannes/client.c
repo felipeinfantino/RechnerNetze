@@ -13,9 +13,16 @@ int main(int argc, char *argv[]) {
 
     char *ipdns = argv[1];
     char *port = argv[2];
-
     struct addrinfo *servinfo, *nextsocket;
     struct addrinfo hints;
+
+    struct timespec start, stop;
+    double accum;
+
+    if( clock_gettime( CLOCK_REALTIME, &start) == -1 ) {
+        perror( "clock gettime" );
+        exit( EXIT_FAILURE );
+    }
 
     if (argc != 3) { // test for right usage
         fprintf(stderr,"usage: client hostname\n");
@@ -61,5 +68,13 @@ int main(int argc, char *argv[]) {
 
     close(sockfd);   //  close socket
     freeaddrinfo(servinfo); // free the linked-list
+
+    if( clock_gettime( CLOCK_REALTIME, &stop) == -1 ) {
+        perror( "clock gettime" );
+        exit( EXIT_FAILURE );
+    }
+    accum = ( stop.tv_sec - start.tv_sec ) + ( stop.tv_nsec - start.tv_nsec );
+    printf( "%lf nanoseconds\n", accum );
+
     return 0;
 }
