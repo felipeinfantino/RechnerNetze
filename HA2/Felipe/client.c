@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     } else {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
-    accum = tmpTime.tv_nsec / 1000; //convert to ms
+    accum = tmpTime.tv_nsec / 1000000; //convert to ms
     printf("%lf ms\n", accum);
     
     return 0;

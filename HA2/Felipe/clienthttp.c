@@ -8,22 +8,20 @@
 #include <time.h>
 
 
-
-void append(char* s, char c)
-{
+void append(char *s, char c) {
     int len = strlen(s);
     s[len] = c;
-    s[len+1] = '\0';
+    s[len + 1] = '\0';
 
 }
 
 
-int check_if_is_http(char * ipOrDNSOrHttp){
-    char* http = "http://";
+int check_if_is_http(char *ipOrDNSOrHttp) {
+    char *http = "http://";
     int leng = strlen(http);
     int is_http = strlen(ipOrDNSOrHttp) > leng;
-    for(int i = 0; i< leng && is_http; i++){
-        if(http[i] != ipOrDNSOrHttp[i]){
+    for (int i = 0; i < leng && is_http; i++) {
+        if (http[i] != ipOrDNSOrHttp[i]) {
             return 0;
         }
     }
@@ -31,11 +29,11 @@ int check_if_is_http(char * ipOrDNSOrHttp){
 }
 
 
-void split_domain(char *httpLink, char* domain_buffer, char * pfad_buffer, char* http_request_buffer){
+void split_domain(char *httpLink, char *domain_buffer, char *pfad_buffer, char *http_request_buffer) {
     //start on 7 because of http://
-    for(int i = 7; i < strlen(httpLink); i++){
-        if(httpLink[i] == '/'){
-            for(int p = i; p < strlen(httpLink); p++){
+    for (int i = 7; i < strlen(httpLink); i++) {
+        if (httpLink[i] == '/') {
+            for (int p = i; p < strlen(httpLink); p++) {
                 append(pfad_buffer, httpLink[p]);
             }
             break;
@@ -54,8 +52,8 @@ int main(int argc, char *argv[]) {
     struct timespec start, stop;
     double time;
 
-    if(argc != 2){
-        fprintf(stderr, "%i Argumente übergeben, Erwartet nur das HTTP link", (argc-1));
+    if (argc != 2) {
+        fprintf(stderr, "%i Argumente übergeben, Erwartet nur das HTTP link", (argc - 1));
         perror("");
         exit(1);
     }
@@ -79,7 +77,7 @@ int main(int argc, char *argv[]) {
     char pfad_buffer[256] = "";
     char http_request_buffer[256] = "";
 
-    if(is_http){
+    if (is_http) {
         split_domain(HttpLink, domain_buffer, pfad_buffer, http_request_buffer);
     }
 
@@ -99,7 +97,7 @@ int main(int argc, char *argv[]) {
     struct addrinfo *connection_results;
     int result = getaddrinfo(domain_buffer, "80", &socket_to_conect_config, &connection_results);
 
-    if(result != 0){
+    if (result != 0) {
         perror("Ungültige Eingaben, prüfen sie die Eingaben");
         exit(1);
     }
@@ -110,15 +108,15 @@ int main(int argc, char *argv[]) {
 
     //Verbindung zwischen client_socket, mit dem first_result, und wir übergeben die first_result_addr_len
     int connection = connect(client_socket, first_result, first_result_addr_len);
-    if(connection == -1){
+    if (connection == -1) {
         perror("Fehler bei der Verbindung");
         exit(1);
     }
 
 
-    if(is_http){
+    if (is_http) {
         int bytes_sent = send(client_socket, http_request_buffer, strlen(http_request_buffer), 0);
-        if(bytes_sent == -1){
+        if (bytes_sent == -1) {
             perror("Error while sending http Request");
             exit(1);
         }
@@ -128,7 +126,7 @@ int main(int argc, char *argv[]) {
     char response_from_server[200000];
     ssize_t receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
 
-    if(receive == -1){
+    if (receive == -1) {
         perror("Error while receiving data");
         exit(1);
     }
@@ -139,7 +137,7 @@ int main(int argc, char *argv[]) {
     char *receive_ohne_header;
     receive_ohne_header = strstr(response_from_server, to_look_for);
 
-    for(int i = 0; i < strlen(receive_ohne_header); i++){
+    for (int i = 0; i < strlen(receive_ohne_header); i++) {
         printf("%c", receive_ohne_header[i]);
     }
 
@@ -163,7 +161,7 @@ int main(int argc, char *argv[]) {
     } else {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
-    time = tmpTime.tv_nsec / 1000; //convert to ms
+    time = tmpTime.tv_nsec / 1000000; //convert to ms
     printf("%lf ms\n", time);
 
     close(client_socket);

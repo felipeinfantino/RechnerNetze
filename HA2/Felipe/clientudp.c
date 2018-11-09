@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     } else {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
-    time = tmpTime.tv_nsec / 1000; //convert to ms
+    time = tmpTime.tv_nsec / 1000000; //convert to ms
     printf("%lf ms\n", time);
 
     close(client_socket);
