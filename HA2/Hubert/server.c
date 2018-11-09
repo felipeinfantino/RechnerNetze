@@ -113,7 +113,7 @@ int main(int argc, char* argv[]){
         //close the "listener" socket in child process - no need for child to wait monitor for new incomming connections
         close(server_socket);
         //send a random quote to the client
-        send(client_socket, random_quote, quote_length+1,0);
+        send(client_socket, random_quote, quote_length,0);
         printf("Sent quote: %s", random_quote );
         //after sending the quote, close the socket in child process
         close(client_socket);

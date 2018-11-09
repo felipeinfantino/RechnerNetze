@@ -6,7 +6,7 @@
     #include <unistd.h>
     #include <time.h>
 
-
+ 
 int main(int argc, char *argv[]) {
 
 
@@ -22,18 +22,7 @@ int main(int argc, char *argv[]) {
     char *ipOrDNS = argv[1];
     char *portChar = argv[2];
 
-        //Prüfen, dass der port nummer Nur zahlen enthält
-    size_t len;
-    len = strlen(portChar);
-    for(int i=0;i<len;i++)
-    {
-        if(portChar[i] < 48 || portChar[i] > 57)
-        {
-            perror("Not a valid port number");
-            exit(1);
-        }
-    }
-
+    
     struct timespec start;
     struct timespec end;
     clockid_t clk_id=CLOCK_MONOTONIC;
@@ -67,7 +56,7 @@ int main(int argc, char *argv[]) {
             perror("Fehler bei der Verbindung");
             exit(1);
         }
-
+        
         char response_from_server[512];
         int receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
         while(receive != 0){
