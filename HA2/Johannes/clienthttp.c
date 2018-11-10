@@ -85,14 +85,6 @@ int main(int argc, char *argv[]) {
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_STREAM;
 
-
-    /*//Start timer
-    clockid_t id = CLOCK_MONOTONIC;
-    struct timespec tp;
-    clock_gettime(id, &tp);
-    __syscall_slong_t start_time = tp.tv_nsec;
-*/
-
     struct addrinfo *connection_results;
     int result = getaddrinfo(domain_buffer, "80", &socket_to_conect_config, &connection_results);
 
@@ -121,62 +113,27 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /*char response_from_server[43127];
-    int receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
-    char *content = strstr(response_from_server, "Content-Length: ");
-    if (content != NULL) {
-        content += 16; // Offset by 4 bytes to start of content
-    }
-
-    for (int i = 0; i < strlen(content); i++) {
-        if(content[i] == "n");{
-            break;
-        }
-        printf("%c", content[i]);
-    }
-
-    int receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
-    char *content = strstr(response_from_server, "\r\n\r\n");
-    if (content != NULL) {
-        content += 4; // Offset by 4 bytes to start of content
-    }
-    else {
-        content = response_from_server; // Didn't find end of header, write out everything
-    }
-    for (int i = 0; i < strlen(content); i++) {
-        printf("%c", content[i]);
-    }
-
-    while (recv(client_socket, &response_from_server, sizeof(response_from_server), 0) != 0) {
-        for (int i = 0; i < strlen(response_from_server); i++) {
-            printf("%c", response_from_server[i]);
-        }
-    }
-*/
     int receive;
 
-    /*char buf[50000];
-    receive = recv(client_socket, &buf, sizeof(buf), 0);
-    printf("receive = %i\n", receive);
-    char *content = strstr(buf, "\r\n\r\n");
-    if (content != NULL) {
-        content += 4; // Offset by 4 bytes to start of content
-    }
-    for (int i = 0; i < sizeof(content); i++) {
-        printf("%c", content[i]);
-    }
-*/
-    char response_from_server[1];
+    char response_from_server[1024];
     receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
-    int test = 0;
-    while(receive != 0 && test != (43127 + 520)){
-        test++;
-        if(receive == -1){
+    char *content = strstr(response_from_server, "\r\n\r\n") + 4;
+    int position = content - response_from_server;
+
+    for (int i = position; i < sizeof(response_from_server); i++) {
+        printf("%c", response_from_server[i]);
+    }
+
+    while(1) {
+        receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+        if (receive == -1) {
             perror("Error receive");
             exit(1);
         }
-            printf("%c", response_from_server[0]);
-        receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+        if (receive == 0) break;
+        for (int i = 0; i < receive; i++) {
+            printf("%c", response_from_server[i]);
+        }
     }
 
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
