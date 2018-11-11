@@ -7,6 +7,9 @@
 #include <bits/time.h>
 #include <time.h>
 
+#define BUF 1024 
+
+//append null to string
 void append(char *s, char c) {
     int len = strlen(s);
     s[len] = c;
@@ -14,7 +17,7 @@ void append(char *s, char c) {
 
 }
 
-
+//check whether given address is a correct http:// address
 int check_if_is_http(char *ipOrDNSOrHttp) {
     char *http = "http://";
     int leng = strlen(http);
@@ -28,6 +31,7 @@ int check_if_is_http(char *ipOrDNSOrHttp) {
 }
 
 
+//split URL to different buffers
 void split_domain(char *httpLink, char *domain_buffer, char *pfad_buffer, char *http_request_buffer) {
     //start on 7 because of http://
     for (int i = 7; i < strlen(httpLink); i++) {
@@ -39,6 +43,7 @@ void split_domain(char *httpLink, char *domain_buffer, char *pfad_buffer, char *
         }
         append(domain_buffer, httpLink[i]);
     }
+    //fill the GET request 
     strcat(http_request_buffer, "GET ");
     strcat(http_request_buffer, pfad_buffer);
     strcat(http_request_buffer, " HTTP/1.1\r\nHOST:");
@@ -55,7 +60,7 @@ int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "%i Argumente übergeben, Erwartet nur das HTTP link", (argc - 1));
         perror("");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     //start timer
@@ -91,7 +96,7 @@ int main(int argc, char *argv[]) {
 
     if (result != 0) {
         perror("Ungültige Eingaben, prüfen sie die Eingaben");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     //Wir nehmen das erste element von dem results und seine Adresse
@@ -102,34 +107,38 @@ int main(int argc, char *argv[]) {
     int connection = connect(client_socket, first_result, first_result_addr_len);
     if (connection == -1) {
         perror("Fehler bei der Verbindung");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-
+    //send GET request
     if (is_http) {
         int bytes_sent = send(client_socket, http_request_buffer, strlen(http_request_buffer), 0);
         if (bytes_sent == -1) {
             perror("Error while sending http Request");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
     int receive;
 
-    char response_from_server[1024];
-    receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+    //receive HTTP header and skip it in output
+    char response_from_server[BUF];
+    receive = recv(client_socket, &response_from_server, BUF, 0);
     char *content = strstr(response_from_server, "\r\n\r\n") + 4;
     int position = content - response_from_server;
 
+    //print buffer without the header
     for (int i = position; i < receive; i++) {
         printf("%c", response_from_server[i]);
     }
 
+    
+    //receive the data and print it 
     while(1) {
-        receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+        receive = recv(client_socket, &response_from_server, BUF, 0);
         if (receive == -1) {
             perror("Error receive");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         if (receive == 0) break;
         for (int i = 0; i < receive; i++) {
@@ -137,10 +146,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    //stop timer
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
         perror("clock gettime");
         exit(EXIT_FAILURE);
     }
+
     //check if more than 1 passed and correct nanoseconds
     struct timespec tmpTime;
     if ((stop.tv_nsec - start.tv_nsec) < 0) {
