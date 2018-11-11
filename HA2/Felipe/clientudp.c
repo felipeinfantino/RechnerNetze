@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
         perror("Fehler bei der Datenuberstragung");
         exit(1);
     }
+    printf("%s",response_from_server );
     //End timer
     /*clock_gettime(id, &tp);
     __syscall_slong_t end_time = tp.tv_nsec;
@@ -83,7 +84,7 @@ int main(int argc, char *argv[]) {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
     time = tmpTime.tv_nsec / 1000000; //convert to ms
-    printf("%lf ms\n", time);
+    printf("\n%lf ms\n", time);
 
     close(client_socket);
     //shutdown(client_socket, SHUT_RDWR);

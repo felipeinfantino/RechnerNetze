@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    printf("%s",response );
     close(sockfd);   //  close socket
     freeaddrinfo(servinfo); // free the linked-list
 
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]) {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
     accum = tmpTime.tv_nsec / 1000000; //convert to ms
-    printf("%lf ms\n", accum);
+    printf("\n%lf ms\n", accum);
     
     return 0;
 }
