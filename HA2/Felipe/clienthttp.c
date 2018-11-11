@@ -7,7 +7,6 @@
 #include <bits/time.h>
 #include <time.h>
 
-
 void append(char *s, char c) {
     int len = strlen(s);
     s[len] = c;
@@ -44,6 +43,7 @@ void split_domain(char *httpLink, char *domain_buffer, char *pfad_buffer, char *
     strcat(http_request_buffer, pfad_buffer);
     strcat(http_request_buffer, " HTTP/1.1\r\nHOST:");
     strcat(http_request_buffer, domain_buffer);
+    strcat(http_request_buffer, "\r\nConnection: close");
     strcat(http_request_buffer, "\r\n\r\n");
 }
 
@@ -86,14 +86,6 @@ int main(int argc, char *argv[]) {
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_STREAM;
 
-
-    //Start timer
-    clockid_t id = CLOCK_MONOTONIC;
-    struct timespec tp;
-    clock_gettime(id, &tp);
-    __syscall_slong_t start_time = tp.tv_nsec;
-
-
     struct addrinfo *connection_results;
     int result = getaddrinfo(domain_buffer, "80", &socket_to_conect_config, &connection_results);
 
@@ -122,34 +114,29 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    int receive;
 
-    char response_from_server[200000];
-    ssize_t receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+    char response_from_server[1024];
+    receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+    char *content = strstr(response_from_server, "\r\n\r\n") + 4;
+    int position = content - response_from_server;
 
-    if (receive == -1) {
-        perror("Error while receiving data");
-        exit(1);
+    for (int i = position; i < receive; i++) {
+        printf("%c", response_from_server[i]);
     }
 
-
-    //ACHTUNG NUL CHAR ÜBERPÜFUNG FEHLT
-    char to_look_for[5] = "\r\n\r\n";
-    char *receive_ohne_header;
-    receive_ohne_header = strstr(response_from_server, to_look_for);
-
-    for (int i = 0; i < strlen(receive_ohne_header); i++) {
-        printf("%c", receive_ohne_header[i]);
+    while(1) {
+        receive = recv(client_socket, &response_from_server, sizeof(response_from_server), 0);
+        if (receive == -1) {
+            perror("Error receive");
+            exit(1);
+        }
+        if (receive == 0) break;
+        for (int i = 0; i < receive; i++) {
+            printf("%c", response_from_server[i]);
+        }
     }
 
-
-    //End timer
-    /*clock_gettime(id, &tp);
-    __syscall_slong_t end_time = tp.tv_nsec;
-
-
-    //Difference in nano seconds
-    printf("Difference %ld ns", end_time-start_time);
-    */
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
         perror("clock gettime");
         exit(EXIT_FAILURE);
@@ -162,7 +149,7 @@ int main(int argc, char *argv[]) {
         tmpTime.tv_nsec = stop.tv_nsec - start.tv_nsec;
     }
     time = tmpTime.tv_nsec / 1000000; //convert to ms
-    printf("%lf ms\n", time);
+    //printf("%lf ms\n", time);
 
     close(client_socket);
     //Free
