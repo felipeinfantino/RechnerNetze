@@ -6,22 +6,24 @@
 #include <unistd.h>
 #include "uthash.h"
 
-#define HEAD 48
+#define HEAD 6
 
+/* structure for storing <key,value>
 typedef struct database
 {
-    int key;
-    char *value;
+    char key[30];
+    char value[30];
     UT_hash_handle hh;
 } database;
 
+*/
 
 //split header to different buffers
 int main(int argc, char *argv[])
 {
 
     //check for correct number of arguments
-    if (argc != 1)
+    if (argc != 2)
     {
         perror("Wrong input format");
         exit(1);
@@ -31,9 +33,7 @@ int main(int argc, char *argv[])
     char *port = argv[1];
 
     //declare needed structures
-    database *db=NULL;
     struct addrinfo server_info_config;
-    server_info_config = NULL;
     struct addrinfo *results;
 
     //initialize server_info_config
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     server_info_config.ai_socktype = SOCK_STREAM;
 
     //get host information and load it into *results
-    if (getaddrinfo("", port, &server_info_config, &results) != 0)
+    if (getaddrinfo("localhost", port, &server_info_config, &results) != 0)
     {
         perror("");
         exit(1);
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    //start an infinite loop which monitors for new connections and handles it (the ~server~ program)
+    //start the infinite loop
     while (1)
     {
         //construct sockaddr_storage for storing client information
@@ -81,89 +81,65 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        //fork a new process to handle this client
-        if (!fork())
-        { //child process
-            char receive_header[HEAD];
-            char answer_header[HEAD];
-            char transaction_id[8];
-            char key_length_buf[16];
-            char value_length_buf[16];
-            int key_length;
-            int value_length;
-            char *ptr;
+        unsigned char receive_header[HEAD];
+        unsigned char answer_header[HEAD];
 
-            //process the received header
-            if (recv(client_socket, &receive_header, HEAD, 0) == -1) //receive header
-            {
-                perror("Error receiving ");
-                exit(1);
-            }
-
-            memcpy(&transaction_id, receive_header[8], 8);    //copy transaction_id
-            memcpy(&key_length_buf, receive_header[16], 16);   //copy key_length
-            memcpy(&value_length_buf, receive_header[32], 16); //copy value_length
-
-            //convert key_length and value_length
-            key_length = atoi(key_length_buf);
-            value_length = atoi(value_length_buf);
-
-            char key[key_length];
-            char value[value_length];
-
-            //prepare the answer header
-            memcpy(&answer_header, &receive_header, HEAD); //create template from received header
-            memset(&answer_header, 0, 1);                  //clear up the first byte
-            answer_header[4] = "1";
-            
-             if (recv(client_socket, &key, key_length, 0) == -1) //receive key
-            {
-                perror("Error receiving ");
-                exit(1);
-            }
-
-             if(value_length>0){
-                if (recv(client_socket, &value, value_length, 0) == -1) //receive value
-            {
-                perror("Error receiving ");
-                exit(1);
-            }
-             }
-
-            //break down header into different structures;
-            if (receive_header[5] == 1)
-            {   
-                database *temp= malloc(sizeof(database));
-
-                HASH_FIND_INT(db,key,temp);
-                char *answer=temp->value;
-
-            }
-
-            else if (receive_header[6] == 1)
-            {
-                
-            }
-
-            else if (receive_header[7] == 1)
-            {
-                //delete
-            }
-
-            //prepare the answer header
-            memcpy(&answer_header, &receive_header, HEAD); //create template from received header
-            memset(&answer_header, 0, 4);                  //clear up the first 4 bytes 
-            answer_header[4] = "1";
-
-            //close the "listener" socket in child process - no need for child to wait monitor for new incomming connections
-            close(server_socket);
-            //after sending the quote, close the socket in child process
-            close(client_socket);
-            exit(0);
+        if (recv(client_socket, &receive_header, HEAD, 0) == -1) //receive header
+        {
+            perror("Error receiving ");
+            exit(1);
         }
-        //this client has been already handled by the server, close this connection
+
+        int key_length = (receive_header[2] << 8) + receive_header[3];   //process the key length
+        int value_length = (receive_header[4] << 8) + receive_header[5]; //process the value length
+        char key[key_length];   
+        char value[value_length];
+
+        memcpy(answer_header, receive_header, HEAD); //create template from received header
+
+        if (recv(client_socket, &key, key_length, 0) == -1) //receive key
+        {
+            perror("Error receiving ");
+            exit(1);
+        }
+
+        if (value_length > 0)
+        {
+            if (recv(client_socket, &value, value_length, 0) == -1) //receive value
+            {
+                perror("Error receiving ");
+                exit(1);
+            }
+        }
+
+        //exceute the correct function
+        if (receive_header[0] == 4) //GET
+        {
+
+            answer_header[0] = 0b00001100;
+            send(client_socket, answer_header, HEAD, 0);
+            send(client_socket, key, sizeof(key), 0);
+            send(client_socket, value, sizeof(value), 0);
+        }
+        else if (receive_header[0] == 2) //SET
+        {
+            /*
+            database *s = malloc(sizeof(database));
+            strcpy(s->key, key);
+            strcpy(s->value, value);
+            HASH_ADD_STR(db, key, s);
+            */
+            answer_header[0] = 0b00001010;
+            send(client_socket, answer_header, HEAD, 0);
+        }
+        else if (receive_header[0] == 1) //DELETE
+        {
+
+            answer_header[0] = 0b00001001;
+            send(client_socket, answer_header, HEAD, 0);
+        }
         close(client_socket);
     }
-    //clear the memory and close the file stream. this server doesn't support "safe quitting" though, needs to be killed by the OS
+    close(server_socket);
     freeaddrinfo(results);
 }
