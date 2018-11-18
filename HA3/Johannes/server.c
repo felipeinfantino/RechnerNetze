@@ -117,13 +117,15 @@ int main(int argc, char *argv[])
 
         int key_length = (receive_header[2] << 8) + receive_header[3];   //process the key length
         int value_length = (receive_header[4] << 8) + receive_header[5]; //process the value length
-        char key[key_length];
-        char value[value_length];
+        char key[key_length + 1];
+        char value[value_length + 1];
 
         memcpy(&key[0],&receive_header[6], key_length);
         memcpy(&value[0],&receive_header[6+key_length], value_length);
         memcpy(answer_header, receive_header, 1000); //create template from received header
 
+        key[key_length] = '\0';
+        value[value_length] = '\0';
         //exceute the correct function
         if (receive_header[0] == 4) //GET
         {
