@@ -10,8 +10,8 @@
 
 
 struct my_struct {
-    char key[30];
-    char value[30];
+    char *key;
+    char *value;
     UT_hash_handle hh;
 };
 
@@ -22,8 +22,10 @@ void add_value(char key[], char value[]) {
     HASH_FIND_STR(hashtable, key, s);  /* id already in the hash? */
     if (s==NULL) {
         s = (struct my_struct *)malloc(sizeof *s);
+        s->key = (char *) malloc(strlen(key) + 1);
+        s->value = (char *) malloc(strlen(value) + 1);
         strncpy(s->key, key, strlen(key));
-        strncpy(s->value, value, strlen(value)); //WRONG // TODO
+        strncpy(s->value, value, strlen(value));
         HASH_ADD_STR(hashtable, key, s );  /* id: name of key field */
     }
 }
@@ -119,8 +121,8 @@ int main(int argc, char *argv[])
         char key[key_length];
         char value[value_length];
 
-        memcpy(&key[0],&receive_header[6],key_length);
-        memcpy(&value[0],&receive_header[6+key_length],value_length);
+        memcpy(&key[0],&receive_header[6], key_length);
+        memcpy(&value[0],&receive_header[6+key_length], value_length);
         memcpy(answer_header, receive_header, 1000); //create template from received header
 
         //exceute the correct function
@@ -161,6 +163,8 @@ int main(int argc, char *argv[])
         else if (receive_header[0] == 1) //DELETE
         {
             struct my_struct *toDel = (struct my_struct *)malloc(sizeof *toDel);
+            toDel->key = (char *) malloc(strlen(key) + 1);
+            toDel->value = (char *) malloc(strlen(value) + 1);
             strncpy(toDel->key, key, strlen(key));
             strncpy(toDel->value, value, strlen(value));
             delete_value(toDel);
