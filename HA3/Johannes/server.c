@@ -117,7 +117,6 @@ int main(int argc, char *argv[])
 
         int key_length = (receive_header[2] << 8) + receive_header[3];   //process the key length
         int value_length = (receive_header[4] << 8) + receive_header[5]; //process the value length
-        char tId = receive_header[1];
         char key[key_length];
         char value[value_length];
 
@@ -134,6 +133,7 @@ int main(int argc, char *argv[])
                 char delAnswer[1000];
                 memset(delAnswer, 0, 1000);
                 delAnswer[0] = 0b00001100;
+                delAnswer[1] = receive_header[1];
                 send(client_socket, delAnswer, 1000, 0);
             } else {
                 int length = strlen(found->value);
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 
                 printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
                 answer_header[0] = 0b00001100;
-                answer_header[1] = tId;
+                answer_header[1] = receive_header[1];
                 send(client_socket, answer_header, 1000, 0);
             }
         }
@@ -158,6 +158,7 @@ int main(int argc, char *argv[])
             char delAnswer[1000];
             memset(delAnswer, 0, 1000);
             delAnswer[0] = 0b00001010;
+            delAnswer[1] = receive_header[1];
             send(client_socket, delAnswer, 1000, 0);
         }
         else if (receive_header[0] == 1) //DELETE
@@ -172,6 +173,7 @@ int main(int argc, char *argv[])
             char delAnswer[1000];
             memset(delAnswer, 0, 1000);
             delAnswer[0] = 0b00001001;
+            delAnswer[1] = receive_header[1];
             send(client_socket, delAnswer, 1000, 0);
         }
         close(client_socket);
