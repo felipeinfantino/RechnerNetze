@@ -22,8 +22,8 @@ void add_value(char key[], char value[]) {
     HASH_FIND_STR(hashtable, key, s);  /* id already in the hash? */
     if (s==NULL) {
         s = (struct my_struct *)malloc(sizeof *s);
-        strcpy(s->key, key);
-        strcpy(s->value, value);
+        strncpy(s->key, key, strlen(key));
+        strncpy(s->value, value, strlen(value)); //WRONG // TODO
         HASH_ADD_STR(hashtable, key, s );  /* id: name of key field */
     }
 }
@@ -104,10 +104,10 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        unsigned char receive_header[HEAD];
-        unsigned char answer_header[HEAD];
+        unsigned char receive_header[1000];
+        unsigned char answer_header[1000];
 
-        if (recv(client_socket, &receive_header, HEAD, 0) == -1) //receive header
+        if (recv(client_socket, &receive_header, 1000, 0) == -1) //receive header
         {
             perror("Error receiving ");
             exit(1);
@@ -115,52 +115,60 @@ int main(int argc, char *argv[])
 
         int key_length = (receive_header[2] << 8) + receive_header[3];   //process the key length
         int value_length = (receive_header[4] << 8) + receive_header[5]; //process the value length
+        char tId = receive_header[1];
         char key[key_length];
         char value[value_length];
 
-        memcpy(answer_header, receive_header, HEAD); //create template from received header
-
-        if (recv(client_socket, &key, key_length, 0) == -1) //receive key
-        {
-            perror("Error receiving ");
-            exit(1);
-        }
-
-        if (value_length > 0)
-        {
-            if (recv(client_socket, &value, value_length, 0) == -1) //receive value
-            {
-                perror("Error receiving ");
-                exit(1);
-            }
-        }
+        memcpy(&key[0],&receive_header[6],key_length);
+        memcpy(&value[0],&receive_header[6+key_length],value_length);
+        memcpy(answer_header, receive_header, 1000); //create template from received header
 
         //exceute the correct function
         if (receive_header[0] == 4) //GET
         {
             struct my_struct *found = find_value(key);
-            printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
-            answer_header[0] = 0b00001100;
-            send(client_socket, answer_header, HEAD, 0);
-            send(client_socket, found->key, sizeof(found->key), 0); //WITH UTHASH
-            send(client_socket, found->value, sizeof(found->value), 0); //WITH UTHASH
+            if(found == NULL) {
+                printf("VALUE: %s not found\n", value);
+                char delAnswer[1000];
+                memset(delAnswer, 0, 1000);
+                delAnswer[0] = 0b00001100;
+                send(client_socket, delAnswer, 1000, 0);
+            } else {
+                int length = strlen(found->value);
+                int LSBMAX = 255;
+                int LSB = strlen(found->value) & LSBMAX;
+                int MSB = (length - LSB) >> 8;
+                answer_header[4] = MSB;
+                answer_header[5] = LSB;
+
+                memcpy(&answer_header[6 + key_length], found->value, strlen(found->value));
+
+                printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
+                answer_header[0] = 0b00001100;
+                answer_header[1] = tId;
+                send(client_socket, answer_header, 1000, 0);
+            }
         }
         else if (receive_header[0] == 2) //SET
         {
             add_value(key, value); //WITH UTHASH
             printf("SET KEY: %s with VALUE: %s\n", key, value);
-            answer_header[0] = 0b00001010;
-            send(client_socket, answer_header, HEAD, 0);
+            char delAnswer[1000];
+            memset(delAnswer, 0, 1000);
+            delAnswer[0] = 0b00001010;
+            send(client_socket, delAnswer, 1000, 0);
         }
         else if (receive_header[0] == 1) //DELETE
         {
             struct my_struct *toDel = (struct my_struct *)malloc(sizeof *toDel);
-            strcpy(toDel->value, value);
-            strcpy(toDel->key, key);
+            strncpy(toDel->key, key, strlen(key));
+            strncpy(toDel->value, value, strlen(value));
             delete_value(toDel);
-
-            answer_header[0] = 0b00001001;
-            send(client_socket, answer_header, HEAD, 0);
+            printf("DELETED VALUE: %s\n", value);
+            char delAnswer[1000];
+            memset(delAnswer, 0, 1000);
+            delAnswer[0] = 0b00001001;
+            send(client_socket, delAnswer, 1000, 0);
         }
         close(client_socket);
     }
