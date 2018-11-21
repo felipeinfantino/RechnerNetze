@@ -10,7 +10,7 @@
 int set(char *key, int key_length, char *value, int value_length) {
     fd_set rfds;
     FD_ZERO(&rfds);
-    FD_SET(sockdfd); // TODO sockfd no parameter in get()?
+    FD_SET(sockfd); // TODO sockfd no parameter in get()?
 
     struct timeval tv;
     tv.tv_sec = 2;
@@ -44,7 +44,7 @@ int set(char *key, int key_length, char *value, int value_length) {
     } while ((ready = select(sockfd + 1, &rfds, NULL, NULL, &tv)) == 0);
     unsigned char receive_header[1000];
     // recv answer which sockfd in recv? TODO
-    ready = recv(sockfd + 1, &receive_header, 1000, 0);
+    ready = recv(sockfd, &receive_header, 1000, 0);
     if (ready == -1) return -1; // error
     if (ready == 1) return 1; // acknowledged
 
