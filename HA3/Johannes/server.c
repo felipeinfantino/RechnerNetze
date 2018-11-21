@@ -10,8 +10,8 @@
 
 
 struct my_struct {
-    char *key;
-    char *value;
+    char key[30];
+    char value[30];
     UT_hash_handle hh;
 };
 
@@ -19,16 +19,11 @@ struct my_struct *hashtable = NULL;
 
 void add_value(char key[], char value[]) {
     struct my_struct *s = NULL;
-    HASH_FIND_STR(hashtable, key, s);  /* id already in the hash? */
-    if (s==NULL) {
         s = (struct my_struct *)malloc(sizeof *s);
-        s->key = (char *) malloc(strlen(key) + 1);
-        s->value = (char *) malloc(strlen(value) + 1);
-        strncpy(s->key, key, strlen(key));
-        strncpy(s->value, value, strlen(value));
+        strcpy(s->key, key);
+        strcpy(s->value, value);
         HASH_ADD_STR(hashtable, key, s );  /* id: name of key field */
     }
-}
 
 struct my_struct *find_value(char key[]) {
     struct my_struct *s;
@@ -130,7 +125,7 @@ int main(int argc, char *argv[])
         if (receive_header[0] == 4) //GET
         {
             struct my_struct *found = find_value(key);
-            if(found == NULL) {
+           if(found == NULL) {
                 printf("VALUE: %s not found\n", value);
                 char delAnswer[1000];
                 memset(delAnswer, 0, 1000);
@@ -155,7 +150,16 @@ int main(int argc, char *argv[])
         }
         else if (receive_header[0] == 2) //SET
         {
+
+	    
             add_value(key, value); //WITH UTHASH
+
+		struct my_struct *found = find_value(key);
+           if(found == NULL) {
+		printf(" hiii");
+		}else{
+
+}
             printf("SET KEY: %s with VALUE: %s\n", key, value);
             char delAnswer[1000];
             memset(delAnswer, 0, 1000);
@@ -166,17 +170,28 @@ int main(int argc, char *argv[])
         else if (receive_header[0] == 1) //DELETE
         {
             struct my_struct *toDel = (struct my_struct *)malloc(sizeof *toDel);
-            toDel->key = (char *) malloc(strlen(key) + 1);
-            toDel->value = (char *) malloc(strlen(value) + 1);
-            strncpy(toDel->key, key, strlen(key));
-            strncpy(toDel->value, value, strlen(value));
+           
+		
+	    struct my_struct *found = find_value(key);
+	    if(found != NULL){
+
+            strcpy(toDel->key, key);
+            strcpy(toDel->value, value);
+	    printf("DELETED VALUE: %s\n", key);
             delete_value(toDel);
-            printf("DELETED VALUE: %s\n", value);
+            
             char delAnswer[1000];
             memset(delAnswer, 0, 1000);
             delAnswer[0] = 0b00001001;
             delAnswer[1] = receive_header[1];
             send(client_socket, delAnswer, 1000, 0);
+	}else{
+		 char delAnswer[1000];
+                memset(delAnswer, 0, 1000);
+                delAnswer[0] = 0b00001001;
+                delAnswer[1] = receive_header[1];
+                send(client_socket, delAnswer, 1000, 0);
+		}
         }
         close(client_socket);
     }
