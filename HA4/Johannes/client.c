@@ -88,9 +88,9 @@ int get(char *key, int key_length, char **value) {
     int value_length = (receive_header[4] << 8) + receive_header[5]; //process the value length
     printf("value_length is %i\n", value_length); // TODO remove later (debug)
 
-    value = malloc(sizeof(char) * value_length + 1); // TODO wrong ?
-    memcpy(&value[0], &receive_header[6 + key_length], value_length);
-    value[value_length + 1] = '\0'; // TODO felipe schonmal gelöst ?
+    *value = calloc(value_length,sizeof(char));
+    memcpy(&(*value[0]), &receive_header[6 + key_length], value_length);
+
 
     if (ready == -1) return -1; // error
     if (ready == 1) return value_length; // acknowledged
