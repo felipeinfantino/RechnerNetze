@@ -6,11 +6,12 @@
 #include <memory.h>
 #include <unistd.h>
 #include <sys/time.h>
+int sockfd = 0;
 
 int set(char *key, int key_length, char *value, int value_length) {
     fd_set rfds;
     FD_ZERO(&rfds);
-    FD_SET(sockfd); // TODO sockfd no parameter in get()?
+    FD_SET(sockfd, rfds); // TODO sockfd no parameter in get()?
 
     struct timeval tv;
     tv.tv_sec = 2;
@@ -53,8 +54,8 @@ int set(char *key, int key_length, char *value, int value_length) {
 
 int get(char *key, int key_length, char **value) {
     fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(sockdfd);
+    FD_ZERO(sockfd, &rfds);
+    FD_SET(sockdfd, rfds);
 
     struct timeval tv;
     tv.tv_sec = 2;
@@ -62,8 +63,8 @@ int get(char *key, int key_length, char **value) {
 
     int ready;
     do {
-        send_get((key, keylen));
-    } while ((ready = select(sockdfd + 1, &rfds, NULL, NULL, &tv)) == 0);
+        //send_get((key, keylen));
+    } while ((ready = select(sockfd + 1, &rfds, NULL, NULL, &tv)) == 0);
     {
 
         return -1;
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]) {
     }
 
     //create new socket using data obtained with getaddrinfo()
-    int sockfd = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
+    sockfd = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
 
     //connect
     if (connect(sockfd, results->ai_addr, results->ai_addrlen) == -1) {
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
     } else if (argv[4] == "DELETE") {
-        if (del(argv[5], strlen(argv[5]), argv[6], strlen(argv[6])) == -1) {
+        if (del(argv[5], strlen(argv[5])) == -1) {
             perror("DELETE Error\n");
             exit(1);
         }
