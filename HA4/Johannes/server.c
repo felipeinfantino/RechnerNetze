@@ -8,35 +8,36 @@
 
 #define HEAD 6
 
-
-struct my_struct {
-    char key[30];
-    char value[30];
+struct my_struct
+{
+    char key[65538];
+    char value[65538];
     UT_hash_handle hh;
 };
 
 struct my_struct *hashtable = NULL;
 
-void add_value(char key[], char value[]) {
+void add_value(char key[], char value[])
+{
     struct my_struct *s = NULL;
-        s = (struct my_struct *)malloc(sizeof *s);
-        strcpy(s->key, key);
-        strcpy(s->value, value);
-        HASH_ADD_STR(hashtable, key, s );  /* id: name of key field */
-    }
+    s = (struct my_struct *)malloc(sizeof *s);
+    strcpy(s->key, key);
+    strcpy(s->value, value);
+    HASH_ADD_STR(hashtable, key, s); /* id: name of key field */
+}
 
-struct my_struct *find_value(char key[]) {
+struct my_struct *find_value(char key[])
+{
     struct my_struct *s;
-    HASH_FIND_STR(hashtable, key, s );
+    HASH_FIND_STR(hashtable, key, s);
     return s;
 }
 
-void delete_value(struct my_struct *s) {
+void delete_value(struct my_struct *s)
+{
     HASH_DEL(hashtable, s);
     free(s);
-
 }
-
 
 //split header to different buffers
 int main(int argc, char *argv[])
@@ -101,10 +102,10 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        unsigned char receive_header[1000];
-        unsigned char answer_header[1000];
+        unsigned char receive_header[131075];
+        unsigned char answer_header[131075];
 
-        if (recv(client_socket, &receive_header, 1000, 0) == -1) //receive header
+        if (recv(client_socket, &receive_header, 131075, 0) == -1) //receive header
         {
             perror("Error receiving ");
             exit(1);
@@ -115,9 +116,9 @@ int main(int argc, char *argv[])
         char key[key_length + 1];
         char value[value_length + 1];
 
-        memcpy(&key[0],&receive_header[6], key_length);
-        memcpy(&value[0],&receive_header[6+key_length], value_length);
-        memcpy(answer_header, receive_header, 1000); //create template from received header
+        memcpy(&key[0], &receive_header[6], key_length);
+        memcpy(&value[0], &receive_header[6 + key_length], value_length);
+        memcpy(answer_header, receive_header, 131075); //create template from received header
 
         key[key_length] = '\0';
         value[value_length] = '\0';
@@ -125,14 +126,17 @@ int main(int argc, char *argv[])
         if (receive_header[0] == 4) //GET
         {
             struct my_struct *found = find_value(key);
-           if(found == NULL) {
+            if (found == NULL)
+            {
                 printf("VALUE: %s not found\n", value);
-                char delAnswer[1000];
-                memset(delAnswer, 0, 1000);
+                char delAnswer[131075];
+                memset(delAnswer, 0, 131075);
                 delAnswer[0] = 0b00001100;
                 delAnswer[1] = receive_header[1];
-                send(client_socket, delAnswer, 1000, 0);
-            } else {
+                send(client_socket, delAnswer, 131075, 0);
+            }
+            else
+            {
                 int length = strlen(found->value);
                 int LSBMAX = 255;
                 int LSB = strlen(found->value) & LSBMAX;
@@ -145,53 +149,56 @@ int main(int argc, char *argv[])
                 printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
                 answer_header[0] = 0b00001100;
                 answer_header[1] = receive_header[1];
-                send(client_socket, answer_header, 1000, 0);
+                send(client_socket, answer_header, 131075, 0);
             }
         }
         else if (receive_header[0] == 2) //SET
         {
 
-	    
             add_value(key, value); //WITH UTHASH
 
-		struct my_struct *found = find_value(key);
-           if(found == NULL) {
-		printf(" hiii");
-		}else{
-
-}
+            struct my_struct *found = find_value(key);
+            if (found == NULL)
+            {
+                printf(" hiii");
+            }
+            else
+            {
+            }
             printf("SET KEY: %s with VALUE: %s\n", key, value);
-            char delAnswer[1000];
-            memset(delAnswer, 0, 1000);
+            char delAnswer[131075];
+            memset(delAnswer, 0, 131075);
             delAnswer[0] = 0b00001010;
             delAnswer[1] = receive_header[1];
-            send(client_socket, delAnswer, 1000, 0);
+            send(client_socket, delAnswer, 131075, 0);
         }
         else if (receive_header[0] == 1) //DELETE
         {
             struct my_struct *toDel = (struct my_struct *)malloc(sizeof *toDel);
-           
-		
-	    struct my_struct *found = find_value(key);
-	    if(found != NULL){
 
-            strcpy(toDel->key, key);
-            strcpy(toDel->value, value);
-	    printf("DELETED VALUE: %s\n", key);
-            delete_value(toDel);
-            
-            char delAnswer[1000];
-            memset(delAnswer, 0, 1000);
-            delAnswer[0] = 0b00001001;
-            delAnswer[1] = receive_header[1];
-            send(client_socket, delAnswer, 1000, 0);
-	}else{
-		 char delAnswer[1000];
-                memset(delAnswer, 0, 1000);
+            struct my_struct *found = find_value(key);
+            if (found != NULL)
+            {
+
+                strcpy(toDel->key, key);
+                strcpy(toDel->value, value);
+                printf("DELETED VALUE: %s\n", key);
+                delete_value(toDel);
+
+                char delAnswer[131075];
+                memset(delAnswer, 0, 131075);
                 delAnswer[0] = 0b00001001;
                 delAnswer[1] = receive_header[1];
-                send(client_socket, delAnswer, 1000, 0);
-		}
+                send(client_socket, delAnswer, 131075, 0);
+            }
+            else
+            {
+                char delAnswer[131075];
+                memset(delAnswer, 0, 131075);
+                delAnswer[0] = 0b00001001;
+                delAnswer[1] = receive_header[1];
+                send(client_socket, delAnswer, 131075, 0);
+            }
         }
         close(client_socket);
     }
