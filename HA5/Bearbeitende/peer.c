@@ -11,9 +11,9 @@
 
 //------------------- Structs
 struct id_add_port{
-    char* id;
+    uint16_t id;
     char* add;
-    char* port;
+    uint16_t port;
 };
 
 
@@ -40,6 +40,10 @@ struct intern_hash_table_struct *find_value(char key[]) {
 }
 
 //------------------- Funktionen die int zurückgeben
+
+
+void read_header(char **pString, char *string, uint16_t *pInt, uint32_t *pInt1, uint16_t *pInt2, char **pString1,
+                 unsigned char header[1000]);
 
 int isNthBitSet (unsigned char c, int n) {
     static unsigned char mask[] = {128, 64, 32, 16, 8, 4, 2, 1};
@@ -81,12 +85,12 @@ unsigned int hash (const char *str, unsigned int length) {
 //   ID :
 //   IP :
 //   Port :
-void nachricht_ausgeben(struct peer current_peer, int internal, char* art,char*id_absender, char*ip_absender, char* port_absender){
+void nachricht_ausgeben(struct peer* current_peer, int internal, char* art, uint16_t id_absender, uint32_t ip_absender, uint16_t port_absender){
     printf("Internal : %i\n", internal);
     printf("Art der Nachricht : %s\n", art);
-    printf("Absender : \n\t ID : %s\n\t IP : %s\n\t PORT : %s\n\n", id_absender, ip_absender, port_absender);
-    printf("Vorgänger : \n\t ID : %s\n\t IP : %s\n\t PORT : %s\n\n", current_peer.vorganger.id, current_peer.vorganger.add, current_peer.vorganger.port);
-    printf("Nachfolger : \n\t ID : %s\n\t IP : %s\n\t PORT : %s\n\n", current_peer.nachfolger.id, current_peer.nachfolger.add, current_peer.nachfolger.port);
+    printf("Absender : \n\t ID : %u\n\t IP : %u\n\t PORT : %u\n\n", id_absender, ip_absender, port_absender);
+    printf("Vorgänger : \n\t ID : %s\n\t IP : %s\n\t PORT : %s\n\n", current_peer->vorganger.id, current_peer->vorganger.add, current_peer->vorganger.port);
+    printf("Nachfolger : \n\t ID : %s\n\t IP : %s\n\t PORT : %s\n\n", current_peer->nachfolger.id, current_peer->nachfolger.add, current_peer->nachfolger.port);
 }
 
 
@@ -180,6 +184,13 @@ void delete_value(struct intern_hash_table_struct *s) {
     free(s);
 }
 
+void str_to_uint16(const char *str, uint16_t *res) {
+    char *end;
+    long val = strtol(str, &end, 10);
+    *res = (uint16_t)val;
+}
+
+
 
 
 
@@ -193,22 +204,56 @@ int main(int argc, char *argv[])
         perror("Wrong input format");
         exit(1);
     }
+
     //Bsp aufruf ./peer 15 127.0.0.1 4711 245 127.0.0.1 4710 112 127.0.0.1 4712
-    //TODO checken dass keine ID 0 ist
     //Initalize peer
-    struct peer current_peer;
-    strncpy(current_peer.current.id, argv[1], strlen(argv[1]));
-    strncpy(current_peer.current.add, argv[2], strlen(argv[2]));
-    strncpy(current_peer.current.port, argv[3], strlen(argv[3]));
+    struct peer* current_peer = malloc(sizeof(current_peer));
 
-    strncpy(current_peer.vorganger.id, argv[4], strlen(argv[4]));
-    strncpy(current_peer.vorganger.add, argv[5], strlen(argv[5]));
-    strncpy(current_peer.vorganger.port, argv[6], strlen(argv[6]));
+    //initialisiere structs
+    current_peer->current = (struct id_add_port){.id= 0, .add = malloc(strlen(argv[2])) , .port=0};
+    current_peer->vorganger = (struct id_add_port){.id= 0, .add = malloc(strlen(argv[5])) , .port=0};
+    current_peer->nachfolger = (struct id_add_port){.id= 0, .add = malloc(strlen(argv[8])) , .port= 0};
 
-    strncpy(current_peer.nachfolger.id, argv[7], strlen(argv[7]));
-    strncpy(current_peer.nachfolger.add, argv[8], strlen(argv[8]));
-    strncpy(current_peer.nachfolger.port, argv[9], strlen(argv[9]));
+    //Kopiere eingaben in den structs, bei id und port sind ja uint16 und add is string
+    //current
+    str_to_uint16(argv[1], &current_peer->current.id);
+    strncpy(current_peer->current.add, argv[2], strlen(argv[2]));
+    str_to_uint16(argv[3], &current_peer->current.port);
 
+
+    //vorganger
+    str_to_uint16(argv[4], &current_peer->vorganger.id);
+    strncpy(current_peer->vorganger.add, argv[5], strlen(argv[5]));
+
+    //str_to_uint16(argv[6], &current_peer->vorganger.port);
+
+
+
+
+    printf("Id %u\n",current_peer->current.id);
+    printf("Add %s\n",current_peer->current.add);
+    printf("Port %u\n",current_peer->current.port);
+
+    /*
+    printf("Id %u\n",current_peer->vorganger.id);
+    printf("Add %s\n",current_peer->vorganger.add);
+    printf("Port %u\n",current_peer->vorganger.port);
+
+    printf("Id %u\n",current_peer->nachfolger.id);
+    printf("Add %s\n",current_peer->nachfolger.add);
+    printf("Port %u\n",current_peer->nachfolger.port);
+
+*/
+
+
+    /*
+     *
+
+
+    if(current_peer->current.id == 0 || current_peer->vorganger.id == 0 || current_peer->nachfolger.id == 0){
+        perror("Id from one of the peers is 0, that is wrong");
+        exit(1);
+    }
     //declare needed structures
     struct addrinfo server_info_config;
     struct addrinfo *results;
@@ -220,7 +265,7 @@ int main(int argc, char *argv[])
     server_info_config.ai_socktype = SOCK_STREAM;
 
     //get host information and load it into *results
-    if (getaddrinfo(current_peer.current.add, current_peer.current.port, &server_info_config, &results) != 0)
+    if (getaddrinfo(current_peer->current.add, current_peer->current.port, &server_info_config, &results) != 0)
     {
         perror("Error in getAddinfo");
         exit(1);
@@ -270,13 +315,15 @@ int main(int argc, char *argv[])
         // TODO klären ob den Key tatsächlcich optional ist, und wenn key nicht vorhanden was machen wir dann?
         //Nach dem wir die Nachricht empfangen haben, hashen wir den Key
         //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
-        unsigned int key_length = 0; //LESEN
-        char* key = "TO_READ_FROM_HEADER";//LESEN WENN MAN KEYLENGHT HAT
-        char* transaktions_id = "TO_READ_FROM_HEADER";
-        char* id_absender = "TO_READ_FROM_HEADER";
-        char* ip_absender = "TO_READ_FROM_HEADER";
-        char* port_absender = "TO_READ_FROM_HEADER";
+        char* key; //LESEN WENN MAN KEYLENGHT HAT
+        char transaktions_id;
+        uint16_t id_absender;
+        uint16_t key_length;
+        uint16_t port_absender;
+        uint32_t ip_absender;
         char* value = "TO_READ_FROM_HEADER";
+
+        read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
 
 
         //Bereite die ausgabe vor
@@ -313,8 +360,8 @@ int main(int argc, char *argv[])
 
         //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
 
-        if(atoi(current_peer.current.id) < atoi(current_peer.vorganger.id)){
-            if(hash_value < atoi(current_peer.current.id) || hash_value > atoi(current_peer.vorganger.id)){
+        if(atoi(current_peer->current.id) < atoi(current_peer->vorganger.id)){
+            if(hash_value < atoi(current_peer->current.id) || hash_value > atoi(current_peer->vorganger.id)){
                 //Dann current ist dafür zuständig
 
                 //TODO Nachricht bearbeiten und an absender zurückschicken
@@ -329,7 +376,7 @@ int main(int argc, char *argv[])
 
         }else{
             //Fall 2: also normalen Fall
-            if(hash_value > atoi(current_peer.current.id) || hash_value < atoi(current_peer.vorganger.id)){
+            if(hash_value > atoi(current_peer->current.id) || hash_value < atoi(current_peer->vorganger.id)){
                 // Nachricht weiterleiten
             }else{
                 // Nachricht bearbeiten
@@ -339,5 +386,48 @@ int main(int argc, char *argv[])
     }
     close(server_socket);
     freeaddrinfo(results);
+
+
+
+
+    */
 }
+
+void read_header(char **key, char *transaktions_id, uint16_t *id_absender, uint32_t *ip_absender, uint16_t *port_absender, char **value,
+                 unsigned char* header) {
+
+    //Länge von key und value holen
+    uint32_t key_length;
+    uint32_t value_length;
+
+    //Lesen länge von value und key und tauchen wir den byte order
+    memcpy(&key_length, header+2, 2);
+    memcpy(&value_length, header+4, 2);
+
+    key_length = ntohl(key_length);
+    value_length = ntohl(key_length);
+
+    //Header lesen und speichern in den deklarierten Variablen, da wir schon ein pointer als parameter haben
+    // übergeben das einfach in memcpy
+    memcpy(transaktions_id, header+1, 1);
+    memcpy(id_absender, header+6, 2);
+    memcpy(ip_absender, header+8, 4);
+    memcpy(port_absender, header+10, 2);
+
+    if(key_length > 0){
+        *key = (char*)malloc(key_length +1);
+        memcpy(*key, header+14, key_length);
+    }else{
+        *key = NULL;
+    }
+    if(value_length > 0){
+        *value = (char*)malloc(value_length +1);
+        memcpy(*key, header+14+key_length, value_length);
+    } else{
+        *value = NULL;
+    }
+    //TODO vielleicht die nullterminierende chars nach memcpy
+}
+
+
 
