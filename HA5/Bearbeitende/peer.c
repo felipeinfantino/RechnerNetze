@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
 
 
         //Nach dem wir die Nachricht empfangen haben, hashen wir den Key
-        //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
+
         char* key;
         char transaktions_id;
         uint16_t id_absender;
@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
         uint32_t ip_absender;
         char* value;
 
-        printf("Header %s", receive_header);
+        //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
         //read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
 
         //Bereite die ausgabe vor
@@ -323,9 +323,18 @@ int main(int argc, char *argv[]) {
         int isSet = isNthBitSet(receive_header[0], 6);
         int isDelete = isNthBitSet(receive_header[0], 7);
 
-        if(isGet) strcpy(art, "GET");
-        if(isSet) strcpy(art, "SET");
-        if(isDelete) strcpy(art, "DELETE");
+        if(isGet) {
+            art = calloc(strlen("GET"), sizeof(char));
+            strcpy(art, "GET");
+        }
+        if(isSet) {
+            art = calloc(strlen("SET"), sizeof(char));
+            strcpy(art, "SET");
+        }
+        if(isDelete) {
+            art = calloc(strlen("DELETE"), sizeof(char));
+            strcpy(art, "DELETE");
+        }
 
         if(art == NULL){
             perror("Wrong usage, only set or get or delete.");
@@ -333,10 +342,11 @@ int main(int argc, char *argv[]) {
         }
 
         nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
-        /*
         //Hash der Key und gucke ob das zu dem aktuellen peer gehört
-        unsigned int hash_value = hash(key, (key_length+1));
+        printf("hashs key: %s with length+1: %u\n", key, key_length+1);
+        //unsigned int hash_value = hash(key, (key_length+1)); //TODO read header before that
 
+/*
         //Prüfen ob den aktuellen peer zuständig für die anfrage ist
         //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
         //Wenn nicht setzte das intern bit zu 1 und leite dass zu nachfolger weiter
@@ -371,9 +381,8 @@ int main(int argc, char *argv[]) {
                 // Nachricht bearbeiten
             }
         }
-
-        //close(client_socket);
-         */
+        close(client_socket);
+        */
     }
     close(server_socket);
     freeaddrinfo(results);
