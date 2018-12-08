@@ -104,57 +104,57 @@ void nachricht_bearbeiten(int client_socket, unsigned char receive_header[], uns
     // antwort[1] = transaktionsID
     // antwort[2-5] = IP von dem Knoten der das bearbeitet hat
     // antwort[6-7] = Port von dem Knoten der das bearbeitet hat
-    if (receive_header[0] == 4) //GET
-    {
-        struct intern_hash_table_struct *found = find_value(key);
-        if(found == NULL) {
-            printf("VALUE: %s not found\n", value);
-            char delAnswer[1000];
-            memset(delAnswer, 0, 1000);
-            delAnswer[0] = 0b00001100;
-            delAnswer[1] = receive_header[1];
-            send(client_socket, delAnswer, 1000, 0);
-        } else {
-            int length = strlen(found->value);
-            int LSBMAX = 255;
-            int LSB = strlen(found->value) & LSBMAX;
-            int MSB = (length - LSB) >> 8;
-            answer_header[4] = MSB;
-            answer_header[5] = LSB;
+    // if (receive_header[0] == 4) //GET
+    // {
+    //     struct intern_hash_table_struct *found = find_value(key);
+    //     if(found == NULL) {
+    //         printf("VALUE: %s not found\n", value);
+    //         char delAnswer[1000];
+    //         memset(delAnswer, 0, 1000);
+    //         delAnswer[0] = 0b00001100;
+    //         delAnswer[1] = receive_header[1];
+    //         send(client_socket, delAnswer, 1000, 0);
+    //     } else {
+    //         int length = strlen(found->value);
+    //         int LSBMAX = 255;
+    //         int LSB = strlen(found->value) & LSBMAX;
+    //         int MSB = (length - LSB) >> 8;
+    //         answer_header[4] = MSB;
+    //         answer_header[5] = LSB;
 
-            memcpy(&answer_header[6 + key_length], found->value, strlen(found->value));
+    //         memcpy(&answer_header[6 + key_length], found->value, strlen(found->value));
 
-            printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
-            answer_header[0] = 0b00001100;
-            answer_header[1] = receive_header[1];
-            send(client_socket, answer_header, 1000, 0);
-        }
-    }
-    else if (receive_header[0] == 2) //SET
-    {
-        add_value(key, value); //WITH UTHASH
-        printf("SET KEY: %s with VALUE: %s\n", key, value);
-        char delAnswer[1000];
-        memset(delAnswer, 0, 1000);
-        delAnswer[0] = 0b00001010;
-        delAnswer[1] = receive_header[1];
-        send(client_socket, delAnswer, 1000, 0);
-    }
-    else if (receive_header[0] == 1) //DELETE
-    {
-        struct intern_hash_table_struct *toDel = (struct intern_hash_table_struct *)malloc(sizeof *toDel);
-        toDel->key = (char *) malloc(strlen(key) + 1);
-        toDel->value = (char *) malloc(strlen(value) + 1);
-        strncpy(toDel->key, key, strlen(key));
-        strncpy(toDel->value, value, strlen(value));
-        delete_value(toDel);
-        printf("DELETED VALUE: %s\n", value);
-        char delAnswer[1000];
-        memset(delAnswer, 0, 1000);
-        delAnswer[0] = 0b00001001;
-        delAnswer[1] = receive_header[1];
-        send(client_socket, delAnswer, 1000, 0);
-    }
+    //         printf("Found KEY: %s with VALUE: %s\n", found->key, found->value);
+    //         answer_header[0] = 0b00001100;
+    //         answer_header[1] = receive_header[1];
+    //         send(client_socket, answer_header, 1000, 0);
+    //     }
+    // }
+    // else if (receive_header[0] == 2) //SET
+    // {
+    //     add_value(key, value); //WITH UTHASH
+    //     printf("SET KEY: %s with VALUE: %s\n", key, value);
+    //     char delAnswer[1000];
+    //     memset(delAnswer, 0, 1000);
+    //     delAnswer[0] = 0b00001010;
+    //     delAnswer[1] = receive_header[1];
+    //     send(client_socket, delAnswer, 1000, 0);
+    // }
+    // else if (receive_header[0] == 1) //DELETE
+    // {
+    //     struct intern_hash_table_struct *toDel = (struct intern_hash_table_struct *)malloc(sizeof *toDel);
+    //     toDel->key = (char *) malloc(strlen(key) + 1);
+    //     toDel->value = (char *) malloc(strlen(value) + 1);
+    //     strncpy(toDel->key, key, strlen(key));
+    //     strncpy(toDel->value, value, strlen(value));
+    //     delete_value(toDel);
+    //     printf("DELETED VALUE: %s\n", value);
+    //     char delAnswer[1000];
+    //     memset(delAnswer, 0, 1000);
+    //     delAnswer[0] = 0b00001001;
+    //     delAnswer[1] = receive_header[1];
+    //     send(client_socket, delAnswer, 1000, 0);
+    // }
 }
 
 void nachricht_weiterleiten(int client_socket, int internal ,unsigned char receive_header[], unsigned char answer_header[],
@@ -219,22 +219,19 @@ int main(int argc, char *argv[])
     str_to_uint16(argv[1], &current_peer->current.id);
     strncpy(current_peer->current.add, argv[2], strlen(argv[2]));
     str_to_uint16(argv[3], &current_peer->current.port);
-
-
     //vorganger
     str_to_uint16(argv[4], &current_peer->vorganger.id);
     strncpy(current_peer->vorganger.add, argv[5], strlen(argv[5]));
+    str_to_uint16(argv[6], &current_peer->vorganger.port);
 
-    //str_to_uint16(argv[6], &current_peer->vorganger.port);
-
-
-
+    str_to_uint16(argv[7], &current_peer->nachfolger.id);
+    strncpy(current_peer->nachfolger.add, argv[8], strlen(argv[8]));
+    str_to_uint16(argv[9], &current_peer->nachfolger.port);
 
     printf("Id %u\n",current_peer->current.id);
     printf("Add %s\n",current_peer->current.add);
     printf("Port %u\n",current_peer->current.port);
 
-    /*
     printf("Id %u\n",current_peer->vorganger.id);
     printf("Add %s\n",current_peer->vorganger.add);
     printf("Port %u\n",current_peer->vorganger.port);
@@ -243,17 +240,12 @@ int main(int argc, char *argv[])
     printf("Add %s\n",current_peer->nachfolger.add);
     printf("Port %u\n",current_peer->nachfolger.port);
 
-*/
-
-
-    /*
-     *
-
-
     if(current_peer->current.id == 0 || current_peer->vorganger.id == 0 || current_peer->nachfolger.id == 0){
         perror("Id from one of the peers is 0, that is wrong");
         exit(1);
     }
+
+
     //declare needed structures
     struct addrinfo server_info_config;
     struct addrinfo *results;
@@ -264,8 +256,11 @@ int main(int argc, char *argv[])
     server_info_config.ai_family = AF_INET;
     server_info_config.ai_socktype = SOCK_STREAM;
 
+    char* portInChar = malloc(4);
+    sprintf (portInChar, "%u", current_peer->current.port);
+    
     //get host information and load it into *results
-    if (getaddrinfo(current_peer->current.add, current_peer->current.port, &server_info_config, &results) != 0)
+    if (getaddrinfo(current_peer->current.add, portInChar, &server_info_config, &results) != 0)
     {
         perror("Error in getAddinfo");
         exit(1);
@@ -287,44 +282,56 @@ int main(int argc, char *argv[])
         perror("Error while listening");
         exit(1);
     }
+    printf("check");
 
+    //checkpoint
     //start the infinite loop
     while (1)
     {
+        printf("holll");
+        printf("entering while");
         //construct sockaddr_storage for storing client information
         struct sockaddr_storage client_info;
         socklen_t client_info_length = sizeof(client_info);
-
         //aceept the newest connection and load it's data to the client_info struct
         int client_socket = accept(server_socket, (struct sockaddr *)&client_info, &client_info_length);
         if (client_socket == -1)
         {
             perror("Error while accepting the connection");
             exit(1);
+        }else{
+            printf("succ");
         }
-
+        
         unsigned char receive_header[1000];
         unsigned char answer_header[1000];
-
+        
         if (recv(client_socket, &receive_header, 1000, 0) == -1) //receive header
         {
             perror("Error receiving ");
             exit(1);
+        }else{
+            printf("succccs");
         }
 
-        // TODO klären ob den Key tatsächlcich optional ist, und wenn key nicht vorhanden was machen wir dann?
+        /*
+
+
+
         //Nach dem wir die Nachricht empfangen haben, hashen wir den Key
         //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
-        char* key; //LESEN WENN MAN KEYLENGHT HAT
+        char* key; 
         char transaktions_id;
         uint16_t id_absender;
         uint16_t key_length;
         uint16_t port_absender;
         uint32_t ip_absender;
-        char* value = "TO_READ_FROM_HEADER";
+        char* value;
 
-        read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
+        printf("Header %s", receive_header);
+        //read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
 
+        
 
         //Bereite die ausgabe vor
         int internal = isNthBitSet(receive_header[0], 1);
@@ -382,15 +389,13 @@ int main(int argc, char *argv[])
                 // Nachricht bearbeiten
             }
         }
-        close(client_socket);
+
+        */
+
+        //close(client_socket);
     }
-    close(server_socket);
-    freeaddrinfo(results);
-
-
-
-
-    */
+    //close(server_socket);
+    //freeaddrinfo(results);
 }
 
 void read_header(char **key, char *transaktions_id, uint16_t *id_absender, uint32_t *ip_absender, uint16_t *port_absender, char **value,
