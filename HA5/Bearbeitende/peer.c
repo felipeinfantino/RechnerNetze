@@ -274,6 +274,8 @@ int main(int argc, char *argv[])
     {
         perror("Couldn't bind the socket to this port");
         exit(1);
+    }else{
+        printf("bind suc");
     }
 
     //prepare the socket for incoming connections
@@ -281,6 +283,8 @@ int main(int argc, char *argv[])
     {
         perror("Error while listening");
         exit(1);
+    }else{
+        printf("listen succ");
     }
     printf("check");
 
@@ -302,7 +306,7 @@ int main(int argc, char *argv[])
         }else{
             printf("succ");
         }
-        
+
         unsigned char receive_header[1000];
         unsigned char answer_header[1000];
         
