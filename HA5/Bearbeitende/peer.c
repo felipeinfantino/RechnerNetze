@@ -190,19 +190,20 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         answer_header[2] = MSB;
         answer_header[3] = LSB;
         // add value_length to answer
-        length = value_length;
+        length = strlen(found->value);
         LSBMAX = 255;
-        LSB = value_length & LSBMAX;
-        MSB = (length - LSB) >> 8;
-        answer_header[4] = MSB;
-        answer_header[5] = LSB;
+        LSB = strlen(found->value) & LSBMAX;
+                MSB = (length - LSB) >> 8;
+                answer_header[4] = MSB;
+                answer_header[5] = LSB;
         // add key and value
         value = found->value;
         value_length=strlen(value);
         printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
         // set value
+        //memcpy(&answer_header[6], key, key_length);
+        memcpy(&answer_header[6+key_length], value, value_length);
         memcpy(&answer_header[6], key, key_length);
-        memcpy(&answer_header[6 + key_length], value, value_length);
 //            for (int i= 0; i < 1000; i++) {
 //                printf("%c", answer_header[i]);
 //            }
