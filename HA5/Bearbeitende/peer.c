@@ -178,6 +178,7 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
             answer_header[1] = transactionId; // no ID
             memcpy(&answer_header[6], key, key_length);
             send(clientsocket, answer_header, 1000, 0);
+            return;
         }
         answer_header[0] = 0b00001100;
         answer_header[1] = transactionId; // no ID
