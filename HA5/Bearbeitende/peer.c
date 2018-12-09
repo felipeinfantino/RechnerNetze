@@ -246,9 +246,12 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         answer_header[0] = 0b00001001;
         answer_header[1] = transactionId; // no ID
         struct intern_hash_table_struct *found = find_value(key);
+        if(found!= NULL)
         delete_value(found);
         send(clientsocket, answer_header, 1000, 0);
     }
+
+
 }
 
 void read_header_peer(char **key, char *transaktions_id, uint16_t *id_absender, char **ip_absender, char**port_absender,
@@ -518,8 +521,8 @@ int main(int argc, char *argv[])
         else
         {
             printf("read header client...\n");
-            read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &"°!", &value, receive_header, &key_length, &value_length);
-            //TODO key_length, value_length missing and ip_absender, port_absender in char format
+        read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);            
+    //TODO key_length, value_length missing and ip_absender, port_absender in char format
             nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
 
@@ -563,9 +566,8 @@ int main(int argc, char *argv[])
             }else{
                 // Nachricht bearbeiten
             }
-        }
+        }*/
         close(client_socket);
-        */
     }
     close(server_socket);
     freeaddrinfo(results);
