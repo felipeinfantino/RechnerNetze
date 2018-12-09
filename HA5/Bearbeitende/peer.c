@@ -166,6 +166,14 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
                           char *art, char answer_header[], int transactionId)
 {
     printf("bearbeite Nachricht\n");
+    struct intern_hash_table_struct *found = find_value(key);
+    if (found == NULL)
+    {
+        // dont set value
+        memcpy(&answer_header[6], key, key_length);
+        send(clientsocket, answer_header, 1000, 0);
+    }
+
     memset(answer_header, 0, 1000);
     if (strcmp(art, "GET") == 0)
     {
@@ -186,26 +194,16 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         answer_header[4] = MSB;
         answer_header[5] = LSB;
         // add key and value
-        struct intern_hash_table_struct *found = find_value(key);
-        if (found == NULL)
-        {
-            // dont set value
-            memcpy(&answer_header[6], key, key_length);
-            send(clientsocket, answer_header, 1000, 0);
-        }
-        else
-        {
-            value = found->value;
-            value_length=strlen(value);
-            printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
-            // set value
-            memcpy(&answer_header[6], key, key_length);
-            memcpy(&answer_header[6 + key_length], value, value_length);
+        value = found->value;
+        value_length=strlen(value);
+        printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
+        // set value
+        memcpy(&answer_header[6], key, key_length);
+        memcpy(&answer_header[6 + key_length], value, value_length);
 //            for (int i= 0; i < 1000; i++) {
 //                printf("%c", answer_header[i]);
 //            }
-            send(clientsocket, answer_header, 1000, 0);
-        }
+        send(clientsocket, answer_header, 1000, 0);
     }
     if (strcmp(art, "SET") == 0)
     {
