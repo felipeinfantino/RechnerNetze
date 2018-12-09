@@ -324,6 +324,8 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
     *key = malloc(*key_length + 1);
     *value = malloc(*value_length + 1);
     *ip_absender = malloc(strlen(current_peer->current.add) + 1);
+    *port_absender = malloc(strlen(current_peer->current.port) + 1);
+
 
     //Copy value and key
     memcpy(*key, &header[6], *key_length);
@@ -332,7 +334,7 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
     key[*key_length] = '\0';
     value[*value_length] = '\0';
 
-    //Copy values in poiners
+    // //Copy values in poiners
     memcpy(id_absender, &current_peer->current.id, 2);
     strcpy(*port_absender, current_peer->current.port);
     strcpy(*ip_absender, current_peer->current.add);
@@ -517,7 +519,7 @@ int main(int argc, char *argv[])
             printf("read header client...\n");
             read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
             //TODO key_length, value_length missing and ip_absender, port_absender in char format
-            nachricht_bearbeiten(ip_absender, port_absender, key, key_length, value, value_length, art, answer_header, transaktions_id);
+            //nachricht_bearbeiten(ip_absender, port_absender, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
 
         //nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
