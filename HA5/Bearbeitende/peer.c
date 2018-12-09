@@ -194,11 +194,6 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
 //        perror("connection error");
 //        exit(1);
 //    }
-    answer_header[1] = transactionId;
-    answer_header[2] = 0;
-    answer_header[3] = 0;
-    answer_header[4] = 0;
-    answer_header[5] = 0;
 
     if (strcmp(art, "GET") == 0)
     {
@@ -227,8 +222,7 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
             send(clientsocket, answer_header, 1000, 0);
         }
         else
-        {   
-            
+        {
             value = found->value;
             value_length=strlen(value);
             printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
@@ -240,6 +234,11 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
     }
     if (strcmp(art, "SET") == 0)
     {
+        answer_header[2] = 0;
+        answer_header[3] = 0;
+        answer_header[4] = 0;
+        answer_header[5] = 0;
+
         printf("set Key: %s, Value: %s\n ",key,value);
 
         answer_header[0] = 0b00001010;
@@ -249,6 +248,11 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
     }
     if (strcmp(art, "DELETE") == 0)
     {
+        answer_header[2] = 0;
+        answer_header[3] = 0;
+        answer_header[4] = 0;
+        answer_header[5] = 0;
+
         answer_header[0] = 0b00001001;
         answer_header[1] = transactionId; // no ID
         struct intern_hash_table_struct *found = find_value(key);
