@@ -163,7 +163,7 @@ void nachricht_weiterleiten(char nextPeerIP, char nextPeerPort, char *receive_he
 }
 
 void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, char *value, unsigned int value_length,
-                          char *art, char *answer_header, int transactionId)
+                          char *art, char answer_header[], int transactionId)
 {
     printf("bearbeite Nachricht\n");
 //    //declare needed structures
@@ -194,6 +194,11 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
 //        perror("connection error");
 //        exit(1);
 //    }
+    answer_header[1] = transactionId;
+    answer_header[2] = 0;
+    answer_header[3] = 0;
+    answer_header[4] = 0;
+    answer_header[5] = 0;
 
     if (strcmp(art, "GET") == 0)
     {
@@ -224,22 +229,22 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         else
         {   
             
-            value=found->value;
+            value = found->value;
             value_length=strlen(value);
-            printf("\n Key: %s, Value: %s",key,value);
+            printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
             // set value
             memcpy(&answer_header[6], key, key_length);
-            memcpy(&answer_header[6 + key_length], found->value, value_length);
+            memcpy(&answer_header[6 + key_length], value, value_length);
             send(clientsocket, answer_header, 1000, 0);
         }
     }
     if (strcmp(art, "SET") == 0)
     {
-                    printf("\n Key: %s, Value: %s",key,value);
-        printf("set\n");
+        printf("set Key: %s, Value: %s\n ",key,value);
+
         answer_header[0] = 0b00001010;
         //answer_header[1] = transactionId; // no ID
-        add_value(key, value);
+        add_value(key, "321");
         send(clientsocket, answer_header, 1000, 0);
     }
     if (strcmp(art, "DELETE") == 0)
@@ -322,7 +327,9 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
 
     // int key_length_tem = (header[2] << 8) + header[3];   //process the key length
     // int value_length_tem = (header[4] << 8) + header[5]; //process the value length
-
+//    for (int i= 0; i < 1000; i++) {
+//        printf("%c", header[i]);
+//    }
     *key_length = (header[2] << 8) + header[3]; 
     *value_length = (header[4] << 8) + header[5];
 
