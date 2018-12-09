@@ -192,6 +192,7 @@ void str_to_uint16(const char *str, uint16_t *res) {
 
 
 
+
 //------------------- Main
 
 int main(int argc, char *argv[]) {
@@ -206,19 +207,20 @@ int main(int argc, char *argv[]) {
     current_peer->vorganger = (struct id_add_port) {.id= 0, .add = malloc(strlen(argv[5])), .port=0};
     current_peer->nachfolger = (struct id_add_port) {.id= 0, .add = malloc(strlen(argv[8])), .port= 0};
 
-    //current
+    //TODO sprintf to copy full adress
+    // //current
     str_to_uint16(argv[1], &current_peer->current.id);
-    strncpy(current_peer->current.add, argv[2], strlen(argv[2]));
+    sprintf(current_peer->current.add, "%.4s", argv[2]);
     str_to_uint16(argv[3], &current_peer->current.port);
 
-    //Vorganger
+    // //Vorganger
     str_to_uint16(argv[4], &current_peer->vorganger.id);
-    strncpy(current_peer->vorganger.add, argv[5], strlen(argv[5]));
+    sprintf(current_peer->vorganger.add, "%.4s", argv[5]);
     str_to_uint16(argv[6], &current_peer->vorganger.port);
 
-    //Nachfolger
+    // //Nachfolger
     str_to_uint16(argv[7], &current_peer->nachfolger.id);
-    strncpy(current_peer->nachfolger.add, argv[8], strlen(argv[8]));
+    sprintf(current_peer->nachfolger.add, "%.4s", argv[8]);
     str_to_uint16(argv[9], &current_peer->nachfolger.port);
 
     printf("Id %u\n", current_peer->current.id);
@@ -248,11 +250,10 @@ int main(int argc, char *argv[]) {
     server_info_config.ai_family = AF_INET;
     server_info_config.ai_socktype = SOCK_STREAM;
 
-    char *portInChar = malloc(4);
-    sprintf(portInChar, "%u", current_peer->current.port);
-
+    char portInChar[5];
+    sprintf(portInChar, "%d", current_peer->current.port);
     //get host information and load it into *results
-    if (getaddrinfo(current_peer->current.add, portInChar, &server_info_config, &results) != 0) {
+    if (getaddrinfo("localhost", portInChar, &server_info_config, &results) != 0) {
         perror("Error in getAddinfo");
         exit(1);
     }
@@ -302,7 +303,7 @@ int main(int argc, char *argv[]) {
         }
 
 
-        //Nach dem wir die Nachricht empfangen haben, hashen wir den Key
+     //Nach dem wir die Nachricht empfangen haben, hashen wir den Key
 
         char* key;
         char transaktions_id;
@@ -312,38 +313,45 @@ int main(int argc, char *argv[]) {
         uint32_t ip_absender;
         char* value;
 
-        //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
-        //read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
+        // //TODO Header lesen. Wir müssen anders als vorherige aufgabe machen
+        read_header(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value,receive_header);
 
-        //Bereite die ausgabe vor
-        int internal = isNthBitSet(receive_header[0], 1);
+        // //Bereite die ausgabe vor
+        // int internal = isNthBitSet(receive_header[0], 1);
 
-        char* art;
-        int isGet = isNthBitSet(receive_header[0], 5);
-        int isSet = isNthBitSet(receive_header[0], 6);
-        int isDelete = isNthBitSet(receive_header[0], 7);
+        // char* art;
+        // int isGet = isNthBitSet(receive_header[0], 5);
+        // int isSet = isNthBitSet(receive_header[0], 6);
+        // int isDelete = isNthBitSet(receive_header[0], 7);
 
-        if(isGet) {
-            art = calloc(strlen("GET"), sizeof(char));
-            strcpy(art, "GET");
-        }
-        if(isSet) {
-            art = calloc(strlen("SET"), sizeof(char));
-            strcpy(art, "SET");
-        }
-        if(isDelete) {
-            art = calloc(strlen("DELETE"), sizeof(char));
-            strcpy(art, "DELETE");
-        }
+        // if(isGet) {
+        //     art = calloc(strlen("GET"), sizeof(char));
+        //     strcpy(art, "GET");
+        // }
+        // if(isSet) {
+        //     art = calloc(strlen("SET"), sizeof(char));
+        //     strcpy(art, "SET");
+        // }
+        // if(isDelete) {
+        //     art = calloc(strlen("DELETE"), sizeof(char));
+        //     strcpy(art, "DELETE");
+        // }
 
-        if(art == NULL){
-            perror("Wrong usage, only set or get or delete.");
-            exit(1);
-        }
+        // if(art == NULL){
+        //     perror("Wrong usage, only set or get or delete.");
+        //     exit(1);
+        // }
 
-        nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
-        //Hash der Key und gucke ob das zu dem aktuellen peer gehört
-        printf("hashs key: %s with length+1: %u\n", key, key_length+1);
+
+
+
+
+
+
+
+    //     nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
+    //     //Hash der Key und gucke ob das zu dem aktuellen peer gehört
+    //     printf("hashs key: %s with length+1: %u\n", key, key_length+1);
         //unsigned int hash_value = hash(key, (key_length+1)); //TODO read header before that
 
 /*
@@ -384,7 +392,7 @@ int main(int argc, char *argv[]) {
         close(client_socket);
         */
     }
-    close(server_socket);
+   close(server_socket);
     freeaddrinfo(results);
 }
 
@@ -590,6 +598,8 @@ void read_header(char **key, char *transaktions_id, uint16_t *id_absender, uint3
             char **value,
             unsigned char *header) {
 
+    printf("Hello read");
+
     //Länge von key und value holen
     uint32_t key_length;
     uint32_t value_length;
@@ -598,28 +608,34 @@ void read_header(char **key, char *transaktions_id, uint16_t *id_absender, uint3
     memcpy(&key_length, header + 2, 2);
     memcpy(&value_length, header + 4, 2);
 
-    key_length = ntohl(key_length);
-    value_length = ntohl(key_length);
+    // key_length = ntohl(key_length);
+    // value_length = ntohl(key_length);
 
-    //Header lesen und speichern in den deklarierten Variablen, da wir schon ein pointer als parameter haben
-    // übergeben das einfach in memcpy
-    memcpy(transaktions_id, header + 1, 1);
-    memcpy(id_absender, header + 6, 2);
-    memcpy(ip_absender, header + 8, 4);
-    memcpy(port_absender, header + 10, 2);
+    printf("Key length %u ", key_length);
+    printf("Value length %u ", value_length);
 
-    if (key_length > 0) {
-        *key = (char *) malloc(key_length + 1);
-        memcpy(*key, header + 14, key_length);
-    } else {
-        *key = NULL;
-    }
-    if (value_length > 0) {
-        *value = (char *) malloc(value_length + 1);
-        memcpy(*key, header + 14 + key_length, value_length);
-    } else {
-        *value = NULL;
-    }
+
+    // //Header lesen und speichern in den deklarierten Variablen, da wir schon ein pointer als parameter haben
+    // // übergeben das einfach in memcpy
+    // memcpy(transaktions_id, header + 1, 1);
+    // memcpy(id_absender, header + 6, 2);
+    // memcpy(ip_absender, header + 8, 4);
+    // memcpy(port_absender, header + 10, 2);
+
+    // if (key_length > 0) {
+    //     *key = (char *) malloc(key_length + 1);
+    //     memcpy(*key, header + 14, key_length);
+    // } else {
+    //     *key = NULL;
+    // }
+    // if (value_length > 0) {
+    //     *value = (char *) malloc(value_length + 1);
+    //     memcpy(*key, header + 14 + key_length, value_length);
+    // } else {
+    //     *value = NULL;
+    // }
+ printf("Hello read2");
+
     //TODO vielleicht die nullterminierende chars nach memcpy
 }
 
