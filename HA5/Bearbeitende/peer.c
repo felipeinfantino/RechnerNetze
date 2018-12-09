@@ -97,17 +97,13 @@ void nachricht_ausgeben(struct peer *current_peer, int internal, char *art, uint
 
 void add_value(char key[], char value[])
 {
-    struct intern_hash_table_struct *s = NULL;
-    HASH_FIND_STR(hashtable, key, s); /* id already in the hash? */
-    if (s == NULL)
-    {
+        struct intern_hash_table_struct *s = NULL;
         s = (struct intern_hash_table_struct *)malloc(sizeof *s);
         s->key = (char *)malloc(strlen(key) + 1);
         s->value = (char *)malloc(strlen(value) + 1);
-        strncpy(s->key, key, strlen(key));
-        strncpy(s->value, value, strlen(value));
+        strcpy(s->key, key);
+        strcpy(s->value, value);
         HASH_ADD_STR(hashtable, key, s); /* id: name of key field */
-    }
 }
 
 void delete_value(struct intern_hash_table_struct *s)
@@ -226,19 +222,24 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
             send(clientsocket, answer_header, 1000, 0);
         }
         else
-        {
+        {   
+            
+            value=found->value;
+            value_length=strlen(value);
+            printf("\n Key: %s, Value: %s",key,value);
             // set value
             memcpy(&answer_header[6], key, key_length);
-            memcpy(&answer_header[6 + key_length], value, value_length);
+            memcpy(&answer_header[6 + key_length], found->value, value_length);
             send(clientsocket, answer_header, 1000, 0);
         }
     }
     if (strcmp(art, "SET") == 0)
     {
+                    printf("\n Key: %s, Value: %s",key,value);
         printf("set\n");
         answer_header[0] = 0b00001010;
         //answer_header[1] = transactionId; // no ID
-        //add_value(key, value);
+        add_value(key, value);
         send(clientsocket, answer_header, 1000, 0);
     }
     if (strcmp(art, "DELETE") == 0)
