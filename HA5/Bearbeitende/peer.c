@@ -165,7 +165,7 @@ void nachricht_weiterleiten(char nextPeerIP, char nextPeerPort, char *receive_he
 void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, char *value, unsigned int value_length,
                           char *art, char answer_header[], char transactionId)
 {
-    printf("bearbeite Nachricht\n");
+    //printf("bearbeite Nachricht\n");
 
     memset(answer_header, 0, 1000);
     if (strcmp(art, "GET") == 0)
@@ -199,7 +199,7 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         // add key and value
         value = found->value;
         value_length=strlen(value);
-        printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
+        //printf("get Key: %s, Value: %s, valuelength: %u\n",key,value, value_length);
         // set value
         //memcpy(&answer_header[6], key, key_length);
         memcpy(&answer_header[6+key_length], value, value_length);
@@ -216,7 +216,7 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         answer_header[4] = 0;
         answer_header[5] = 0;
 
-        printf("set Key: %s, Value: %s\n ",key,value);
+        //printf("set Key: %s, Value: %s\n ",key,value);
 
         answer_header[0] = 0b00001010;
         answer_header[1] = transactionId; // no ID
@@ -257,8 +257,8 @@ void read_header_peer(char **key, char *transaktions_id, uint16_t *id_absender, 
     // key_length = ntohs(key_length);
     // value_length = ntohs(value_length);
 
-    printf("Key length %u ", key_length);
-    printf("Value length %u ", value_length);
+    //printf("Key length %u ", key_length);
+    //printf("Value length %u ", value_length);
 
     //Header lesen und speichern in den deklarierten Variablen, da wir schon ein pointer als parameter haben
     // übergeben das einfach in memcpy
@@ -281,7 +281,7 @@ void read_header_peer(char **key, char *transaktions_id, uint16_t *id_absender, 
         key[key_length] = '\0';
         if (*key != NULL)
         {
-            printf("Key :  %s\n", *key);
+            //printf("Key :  %s\n", *key);
         }
     }
     else
@@ -293,7 +293,7 @@ void read_header_peer(char **key, char *transaktions_id, uint16_t *id_absender, 
         *value = (char *)malloc(value_length + 1);
         memcpy(*value, header + 14 + key_length, value_length);
         value[value_length] = '\0';
-        printf("Value : %s\n", *value);
+        //printf("Value : %s\n", *value);
     }
     else
     {
@@ -332,13 +332,13 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
     strcpy(*port_absender, current_peer->current.port);
     strcpy(*ip_absender, current_peer->current.add);
 
-    printf("Id absender : %u\n", *id_absender);
-    printf("Port absender %s\n", *port_absender);
-    printf("Ip absender : %s\n", *ip_absender);
-    printf("keylength: %u", *key_length);
-    printf("valuelength: %u", *value_length);
-    printf("key: %s\n", *key);
-    printf("value: %s\n", *value);
+    //printf("Id absender : %u\n", *id_absender);
+    //printf("Port absender %s\n", *port_absender);
+    //printf("Ip absender : %s\n", *ip_absender);
+    //printf("keylength: %u", *key_length);
+    //printf("valuelength: %u", *value_length);
+    //printf("key: %s\n", *key);
+    //printf("value: %s\n", *value);
 }
 
 //------------------- Main
@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
     str_to_uint16(argv[7], &current_peer->nachfolger.id);
     sprintf(current_peer->nachfolger.add, "%.9s", argv[8]);
     sprintf(current_peer->nachfolger.port, "%.5s", argv[9]);
-
+    
     printf("Id %u\n", current_peer->current.id);
     printf("Add %s\n", current_peer->current.add);
     printf("Port %s\n", current_peer->current.port);
@@ -420,7 +420,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("bind succ\n");
+    //    printf("bind succ\n");
     }
 
     //prepare the socket for incoming connections
@@ -431,9 +431,9 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("listen succ\n");
+    //    printf("listen succ\n");
     }
-    printf("start while loop\n");
+    //printf("start while loop\n");
 
     while (1)
     {
@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            printf("client accepted\n");
+        //    printf("client accepted\n");
         }
 
         unsigned char receive_header[1000];
@@ -462,7 +462,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            printf("recv success\n");
+        //    printf("recv success\n");
         }
 
         int internal = isNthBitSet(receive_header[0], 1);
@@ -507,12 +507,12 @@ int main(int argc, char *argv[])
 
         if (internal)
         {
-            printf("read header peer...\n");
+            //printf("read header peer...\n");
             read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, answer_header);
         }
         else
         {
-            printf("read header client...\n");
+            //printf("read header client...\n");
             read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
             //nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
