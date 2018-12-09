@@ -166,38 +166,38 @@ void nachricht_weiterleiten(char nextPeerIP, char nextPeerPort, char *receive_he
     //TODO Wenn internal bit 0 ist, dann muss auf 1 gesetzt werden, nachricht ggf anpassen und weiterleiten an dem nachfolger
 }
 
-void nachricht_bearbeiten(char* firstPeerIp, char* firstPeerPort, char *key, unsigned int key_length, char *value, unsigned int value_length,
+void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, char *value, unsigned int value_length,
                           char *art, char *answer_header, int transactionId)
 {
-
-    //declare needed structures
-    int fPeersocket = 0;
-    struct addrinfo peer_info_config;
-    struct addrinfo *results;
-
-    //initialize client_info_config
-    memset(&peer_info_config, 0, sizeof(peer_info_config));
-    peer_info_config.ai_protocol = IPPROTO_TCP;
-    peer_info_config.ai_family = AF_INET;
-    peer_info_config.ai_socktype = SOCK_STREAM;
-
-    //get host information and load it into *results
-    if (getaddrinfo(firstPeerIp, firstPeerPort, &peer_info_config, &results) != 0)
-    {
-        perror("getaddrinfo error");
-        exit(1);
-    }
-
-    //create new socket using data obtained with getaddrinfo()
-    fPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-
-    //connect
-    if (connect(fPeersocket, results->ai_addr, results->ai_addrlen) == -1)
-    {
-        close(fPeersocket);
-        perror("connection error");
-        exit(1);
-    }
+    printf("bearbeite Nachricht\n");
+//    //declare needed structures
+//    int fPeersocket = 0;
+//    struct addrinfo peer_info_config;
+//    struct addrinfo *results;
+//
+//    //initialize client_info_config
+//    memset(&peer_info_config, 0, sizeof(peer_info_config));
+//    peer_info_config.ai_protocol = IPPROTO_TCP;
+//    peer_info_config.ai_family = AF_INET;
+//    peer_info_config.ai_socktype = SOCK_STREAM;
+//
+//    //get host information and load it into *results
+//    if (getaddrinfo(firstPeerIp, firstPeerPort, &peer_info_config, &results) != 0)
+//    {
+//        perror("getaddrinfo error");
+//        exit(1);
+//    }
+//
+//    //create new socket using data obtained with getaddrinfo()
+//    fPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
+//
+//    //connect
+//    if (connect(fPeersocket, results->ai_addr, results->ai_addrlen) == -1)
+//    {
+//        close(fPeersocket);
+//        perror("connection error");
+//        exit(1);
+//    }
 
     if (strcmp(art, "GET") == 0)
     {
@@ -223,22 +223,23 @@ void nachricht_bearbeiten(char* firstPeerIp, char* firstPeerPort, char *key, uns
         {
             // dont set value
             memcpy(&answer_header[6], key, key_length);
-            send(fPeersocket, answer_header, 1000, 0);
+            send(clientsocket, answer_header, 1000, 0);
         }
         else
         {
             // set value
             memcpy(&answer_header[6], key, key_length);
             memcpy(&answer_header[6 + key_length], value, value_length);
-            send(fPeersocket, answer_header, 1000, 0);
+            send(clientsocket, answer_header, 1000, 0);
         }
     }
     if (strcmp(art, "SET") == 0)
     {
+        printf("set\n");
         answer_header[0] = 0b00001010;
-        answer_header[1] = transactionId; // no ID
-        add_value(key, value);
-        send(fPeersocket, answer_header, 1000, 0);
+        //answer_header[1] = transactionId; // no ID
+        //add_value(key, value);
+        send(clientsocket, answer_header, 1000, 0);
     }
     if (strcmp(art, "DELETE") == 0)
     {
@@ -246,7 +247,7 @@ void nachricht_bearbeiten(char* firstPeerIp, char* firstPeerPort, char *key, uns
         answer_header[1] = transactionId; // no ID
         struct intern_hash_table_struct *found = find_value(key);
         delete_value(found);
-        send(fPeersocket, answer_header, 1000, 0);
+        send(clientsocket, answer_header, 1000, 0);
     }
 }
 
@@ -517,9 +518,9 @@ int main(int argc, char *argv[])
         else
         {
             printf("read header client...\n");
-            read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+            read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &"°!", &value, receive_header, &key_length, &value_length);
             //TODO key_length, value_length missing and ip_absender, port_absender in char format
-            //nachricht_bearbeiten(ip_absender, port_absender, key, key_length, value, value_length, art, answer_header, transaktions_id);
+            nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
 
         //nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
