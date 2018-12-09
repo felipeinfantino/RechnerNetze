@@ -356,24 +356,24 @@ int main(int argc, char *argv[])
     //initialisiere structs
     current_peer->current = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[2]) + 1), .port = malloc(strlen(argv[3]) + 1)};
     current_peer->vorganger = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[5]) + 1), .port = malloc(strlen(argv[6]) + 1)};
-    current_peer->nachfolger = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[8]) + 1), .port = malloc(strlen(argv[7]) + 1)};
+    current_peer->nachfolger = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[8]) + 1), .port = malloc(strlen(argv[9]) + 1)};
 
     //TODO sprintf to copy full adress
     // //current
     str_to_uint16(argv[1], &current_peer->current.id);
     sprintf(current_peer->current.add, "%.9s", argv[2]);
-    sprintf(current_peer->current.port, "%.4s", argv[3]);
+    sprintf(current_peer->current.port, "%.5s", argv[3]);
 
     // //Vorganger
     str_to_uint16(argv[4], &current_peer->vorganger.id);
     sprintf(current_peer->vorganger.add, "%.9s", argv[5]);
-    sprintf(current_peer->vorganger.port, "%.4s", argv[6]);
+    sprintf(current_peer->vorganger.port, "%.5s", argv[6]);
 
 
     // //Nachfolger
     str_to_uint16(argv[7], &current_peer->nachfolger.id);
     sprintf(current_peer->nachfolger.add, "%.9s", argv[8]);
-    sprintf(current_peer->nachfolger.port, "%.4s", argv[9]);
+    sprintf(current_peer->nachfolger.port, "%.5s", argv[9]);
 
     printf("Id %u\n", current_peer->current.id);
     printf("Add %s\n", current_peer->current.add);
