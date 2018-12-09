@@ -533,18 +533,18 @@ int main(int argc, char *argv[])
         else
         {
             printf("read header client...\n");
-        read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);            
-    //TODO key_length, value_length missing and ip_absender, port_absender in char format
-            nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+            read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+            //TODO key_length, value_length missing and ip_absender, port_absender in char format
+            //nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
 
         //nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
         // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
         // printf("hashs key: %s with length+1: %u\n", key, key_length+1);
-        // unsigned int hash_value = hash(key, (key_length+1)); //TODO read header before that
+        unsigned int hash_value = hash(key, (key_length+1));
 
-        /*
+
         //Prüfen ob den aktuellen peer zuständig für die anfrage ist
         //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
         //Wenn nicht setzte das intern bit zu 1 und leite dass zu nachfolger weiter
@@ -557,28 +557,25 @@ int main(int argc, char *argv[])
 
         //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
 
-        if(atoi(current_peer->current.id) < atoi(current_peer->vorganger.id)){
-            if(hash_value < atoi(current_peer->current.id) || hash_value > atoi(current_peer->vorganger.id)){
+        if(current_peer->current.id < current_peer->vorganger.id){
+            if(hash_value < current_peer->current.id || hash_value > current_peer->vorganger.id){
                 //Dann current ist dafür zuständig
-
-                //TODO Nachricht bearbeiten und an absender zurückschicken
-                nachricht_bearbeiten(client_socket, receive_header, answer_header, key_length, key, value);
+                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
 
             }else{
                 //Nicht zuständig, dann weiter leiten
-
-                //TODO Nachricht weiterleiten
                 nachricht_weiterleiten(client_socket, internal ,receive_header, answer_header, key_length, key, value);
             }
-
         }else{
             //Fall 2: also normalen Fall
-            if(hash_value > atoi(current_peer->current.id) || hash_value < atoi(current_peer->vorganger.id)){
-                // Nachricht weiterleiten
+            if(hash_value > current_peer->current.id || hash_value < current_peer->vorganger.id){
+                //Dann current ist dafür zuständig
+                nachricht_weiterleiten(client_socket, internal ,receive_header, answer_header, key_length, key, value);
             }else{
-                // Nachricht bearbeiten
+                //Nicht zuständig, dann weiter leiten
+                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
             }
-        }*/
+        }
         close(client_socket);
     }
     close(server_socket);
