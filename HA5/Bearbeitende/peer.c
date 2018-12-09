@@ -163,7 +163,7 @@ void nachricht_weiterleiten(char nextPeerIP, char nextPeerPort, char *receive_he
 }
 
 void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, char *value, unsigned int value_length,
-                          char *art, char answer_header[], int transactionId)
+                          char *art, char answer_header[], char transactionId)
 {
     printf("bearbeite Nachricht\n");
 
@@ -313,7 +313,7 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
 //    }
     *key_length = (header[2] << 8) + header[3]; 
     *value_length = (header[4] << 8) + header[5];
-
+    *transaktions_id=header[1];
     *key = malloc(*key_length + 1);
     *value = malloc(*value_length + 1);
     *ip_absender = malloc(strlen(current_peer->current.add) + 1);
