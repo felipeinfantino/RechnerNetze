@@ -137,6 +137,7 @@ void nachricht_weiterleiten(char nextPeerIP, char nextPeerPort, char *receive_he
         answer_header[0] += 128;
 
     //get host information and load it into *results
+    printf("IP %u and Port %u\n", nextPeerIP, nextPeerPort);
     if (getaddrinfo(&nextPeerIP, &nextPeerPort, &peer_info_config, &results) != 0)
 
     {
