@@ -477,10 +477,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            printf("received message: \n");
-            for (int i = 0; i < 100; i++) {
-                printf("%c", receive_header[i]);
-            }
+            //    printf("recv success\n");
         }
 
         int internal = isNthBitSet(receive_header[0], 1);
@@ -538,11 +535,10 @@ int main(int argc, char *argv[])
         //nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
         // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
-        // printf("hashs key: %s with length+1: %u\n", key, key_length+1);
         // mod % 2^16, da es der wertebereich ist
+        unsigned int hash_value = (hash(key, (key_length))) % 65536;
+        printf("hashs %d with key: %s\n", hash_value, key);
 
-        unsigned int hash_value = (hash(key, (key_length + 1))) % 65536;
-        printf("hashvalue: %u\n", hash_value);
         //Prüfen ob den aktuellen peer zuständig für die anfrage ist
         //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
         //Wenn nicht setzte das intern bit zu 1 und leite dass zu nachfolger weiter
@@ -554,55 +550,43 @@ int main(int argc, char *argv[])
 
         //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
 
-//        if (current_peer->current.id < current_peer->vorganger.id)
-//        {
-//            if (hash_value < current_peer->current.id && hash_value > current_peer->vorganger.id)
-//            {
-//                //Dann current ist dafür zuständig
-//                printf("Point A\n");
-//                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
-//            }
-//            else
-//            {
-//                //Nicht zuständig, dann weiter leiten
-//                printf("Point B\n");
-//                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
-//            }
-//        }
-//        else
-//        {
-//            //Fall 2: also normalen Fall
-//            if (hash_value > current_peer->current.id && hash_value < current_peer->vorganger.id)
-//            {
-//                //Dann current ist dafür zuständig
-//                printf("Point C\n");
-//                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
-//            }
-//            else
-//            {
-//                //Nicht zuständig, dann weiter leiten
-//                printf("Point D\n");
-//                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
-//            }
-//        }
-
-        if(hash_value > current_peer->current.id){
-            // sonderfall zwischen größter ID und kleinster, also kleinster zuständig
-            if(current_peer->current.id <  current_peer->vorganger.id && hash_value > current_peer->vorganger.id) {
-                printf("bearbeite Nachricht 1...\n");
+        if (current_peer->current.id < current_peer->vorganger.id)
+        {
+            //hash > last and "positive"
+            if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
+            {
+                //Dann current ist dafür zuständig
+                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
-            } else {
-                printf("leite Nachricht weiter 1...\n");
+            }
+            // hash € {0, current_peer_id}
+            else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
+            {
+                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //Dann current ist dafür zuständig
+                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+            }
+            else
+            {
+                //Nicht zuständig, dann weiter leiten
+                printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
                 nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
             }
-        } else {
-            // value kleiner
-            if(current_peer->vorganger.id > hash_value){
-                printf("leite Nachricht weiter 1...\n");
-                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
-            } else  {
-                printf("bearbeite Nachricht 2...\n");
+        }
+        else
+        {
+            //Fall 2: also normalen Fall
+            if (hash_value <= current_peer->current.id && hash_value > current_peer->vorganger.id)
+            {
+                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //Dann current ist dafür zuständig
                 nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+            }
+            else
+            {
+                printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //Nicht zuständig, dann weiter leiten
+                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
             }
         }
         close(client_socket);
