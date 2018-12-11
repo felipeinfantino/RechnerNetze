@@ -119,15 +119,13 @@ void str_to_uint16(const char *str, uint16_t *res)
     *res = (uint16_t)val;
 }
 
-void nachricht_weiterleiten(struct peer *current_peer, char *receive_header, char *answer_header,
-                            unsigned int key_length, const char *key, const char *value, unsigned int value_length, uint16_t peerID)
+void nachricht_weiterleiten(char *nextPeerIP, char *nextPeerPort, char *receive_header, char *answer_header,
+                            unsigned int key_length, const char *key, const char *value, unsigned int value_length, uint16_t peerID, char *ip_absender, char *port_absender)
 {
     int nextPeersocket = 0;
     struct addrinfo peer_info_config;
     struct addrinfo *results;
 
-    char *nextPeerIP = current_peer->nachfolger.add;
-    char *nextPeerPort = current_peer->nachfolger.port;
     uint16_t *ID = &peerID;
     // char *ID;
     //if (current_peer != NULL)
@@ -167,8 +165,8 @@ void nachricht_weiterleiten(struct peer *current_peer, char *receive_header, cha
         memcpy(answer_header, receive_header, 6);
         answer_header[0] += 128;
         memcpy(&answer_header[6], ID, 2);
-        memcpy(answer_header + 8, current_peer->current.add, 4);
-        memcpy(answer_header + 12, current_peer->current.port, 2);
+        memcpy(answer_header + 8, ip_absender, 4);
+        memcpy(answer_header + 12, port_absender, 2);
     }
     else
         //copy whole header
@@ -536,6 +534,8 @@ int main(int argc, char *argv[])
 
         // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
         // mod % 2^16, da es der wertebereich ist
+        char *nextPeerIP = current_peer->nachfolger.add;
+        char *nextPeerPort = current_peer->nachfolger.port;
         unsigned int hash_value = (hash(key, (key_length))) % 65536;
         printf("hashs %d with key: %s\n", hash_value, key);
 
@@ -570,7 +570,7 @@ int main(int argc, char *argv[])
             {
                 //Nicht zuständig, dann weiter leiten
                 printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
-                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
+                nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
             }
         }
         else
@@ -586,7 +586,7 @@ int main(int argc, char *argv[])
             {
                 printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Nicht zuständig, dann weiter leiten
-                nachricht_weiterleiten(current_peer, receive_header, answer_header, key_length, key, value, value_length, id_absender);
+                nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
             }
         }
         close(client_socket);
