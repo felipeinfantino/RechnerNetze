@@ -10,12 +10,13 @@
 
 #define HEAD 6
 
+int csocket = 0;
 //------------------- Structs
 struct id_add_port
 {
     uint16_t id;
-    char *add;
-    char *port;
+    unsigned char *add;
+    unsigned char *port;
 };
 
 struct peer
@@ -27,8 +28,8 @@ struct peer
 
 struct intern_hash_table_struct
 {
-    char *key;
-    char *value;
+    unsigned char *key;
+    unsigned char *value;
     UT_hash_handle hh;
 };
 
@@ -36,7 +37,7 @@ struct intern_hash_table_struct *hashtable = NULL;
 
 //------------------- Funktionen die Structs zurückgeben
 
-struct intern_hash_table_struct *find_value(char key[])
+struct intern_hash_table_struct *find_value(unsigned char key[])
 {
     struct intern_hash_table_struct *s;
     HASH_FIND_STR(hashtable, key, s);
@@ -51,7 +52,7 @@ int isNthBitSet(unsigned char c, int n)
     return ((c & mask[n]) != 0);
 }
 
-unsigned int hash(const char *str, unsigned int length)
+unsigned int hash(const unsigned char *str, unsigned int length)
 {
     unsigned int hash = 5381;
     unsigned int i = 0;
@@ -83,8 +84,41 @@ unsigned int hash(const char *str, unsigned int length)
 //   ID :
 //   IP :
 //   Port :
-void nachricht_ausgeben(struct peer *current_peer, int internal, char *art, uint16_t id_absender, char *ip_absender,
-                        char *port_absender)
+
+void send_to_absender(unsigned char *answer_header, char *ip_absender, char *port_absender)
+{
+
+    struct addrinfo absender_config;
+    struct addrinfo *results;
+
+    //initialize server_info_config
+    memset(&absender_config, 0, sizeof(absender_config));
+    absender_config.ai_protocol = IPPROTO_TCP;
+    absender_config.ai_family = AF_INET;
+    absender_config.ai_socktype = SOCK_STREAM;
+
+    //get host information and load it into *results
+    if (getaddrinfo(ip_absender, port_absender, &absender_config, &results) != 0)
+    {
+        perror("Error in getAddinfo");
+        exit(1);
+    }
+
+    //create new socket using data obtained with getaddrinfo()
+    int absender_socket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
+    if (connect(absender_socket, results->ai_addr, results->ai_addrlen) == -1)
+    {
+        close(absender_socket);
+        errno = ECONNREFUSED;
+        perror("connection error");
+        exit(1);
+    }
+    send(absender_socket, answer_header, 1000, 0);
+    close(absender_socket);
+}
+
+void nachricht_ausgeben(struct peer *current_peer, int internal, unsigned char *art, uint16_t id_absender, unsigned char *ip_absender,
+                        unsigned char *port_absender)
 {
     printf("Internal : %i\n", internal);
     printf("Art der Nachricht : %s\n", art);
@@ -95,12 +129,12 @@ void nachricht_ausgeben(struct peer *current_peer, int internal, char *art, uint
            current_peer->nachfolger.add, current_peer->nachfolger.port);
 }
 
-void add_value(char key[], char value[])
+void add_value(unsigned char key[], unsigned char value[])
 {
     struct intern_hash_table_struct *s = NULL;
     s = (struct intern_hash_table_struct *)malloc(sizeof *s);
-    s->key = (char *)malloc(strlen(key) + 1);
-    s->value = (char *)malloc(strlen(value) + 1);
+    s->key = (unsigned char *)malloc(strlen(key) + 1);
+    s->value = (unsigned char *)malloc(strlen(value) + 1);
     strcpy(s->key, key);
     strcpy(s->value, value);
     HASH_ADD_STR(hashtable, key, s); /* id: name of key field */
@@ -112,25 +146,26 @@ void delete_value(struct intern_hash_table_struct *s)
     free(s);
 }
 
-void str_to_uint16(const char *str, uint16_t *res)
+void str_to_uint16(const unsigned char *str, uint16_t *res)
 {
     char *end;
     long val = strtol(str, &end, 10);
     *res = (uint16_t)val;
 }
 
-void nachricht_weiterleiten(char *nextPeerIP, char *nextPeerPort, char *receive_header, char *answer_header,
-                            unsigned int key_length, const char *key, const char *value, unsigned int value_length, uint16_t peerID, char *ip_absender, char *port_absender)
+void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPort, unsigned char *receive_header, unsigned char *answer_header,
+                            unsigned int key_length, const unsigned char *key, const unsigned char *value, unsigned int value_length, uint16_t peerID, unsigned char *ip_absender, unsigned char *port_absender)
 {
     int nextPeersocket = 0;
     struct addrinfo peer_info_config;
     struct addrinfo *results;
+    printf("bearbeitende port: %s\n", port_absender);
 
     uint16_t *ID = &peerID;
-    // char *ID;
-    //if (current_peer != NULL)
-    //    sprintf(ID, "%d", current_peer->current.id);
 
+    //Convert IPv4 address to binary form
+    // unsigned char ip[sizeof(struct in_addr)];
+    // inet_pton(AF_INET, ip_absender, ip_absender);
     //initialize client_info_config
     memset(&peer_info_config, 0, sizeof(peer_info_config));
     peer_info_config.ai_protocol = IPPROTO_TCP;
@@ -159,31 +194,33 @@ void nachricht_weiterleiten(char *nextPeerIP, char *nextPeerPort, char *receive_
     }
 
     //Fall 1 - current peer acts as the gate:
-    if (receive_header[0] < 128)
+    if (!isNthBitSet(receive_header[0], 0))
     {
+        printf("  FALL 1  \n");
         //copy client header:
         memcpy(answer_header, receive_header, 6);
         answer_header[0] += 128;
-        memcpy(&answer_header[6], ID, 2);
+        memcpy(answer_header + 6, ID, 2);
         memcpy(answer_header + 8, ip_absender, 4);
         memcpy(answer_header + 12, port_absender, 2);
     }
     else
         //copy whole header
         memcpy(answer_header, receive_header, 14);
-    memcpy(&answer_header[6 + key_length], value, value_length);
-    memcpy(&answer_header[6], key, key_length);
-
+    memcpy(answer_header + 14 + key_length, value, value_length);
+    memcpy(answer_header + 14, key, key_length);
     send(nextPeersocket, answer_header, 1000, 0);
 
     close(nextPeersocket);
 }
 
-void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, char *value, unsigned int value_length,
-                          char *art, char answer_header[], char transactionId)
+void nachricht_bearbeiten(int clientsocket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length,
+                          unsigned char *art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender)
 {
     //printf("bearbeite Nachricht\n");
 
+    printf("bearbeitende ip: %s\n", ip_absender);
+    printf("bearbeitende id: %d\n", id_absender);
     memset(answer_header, 0, 1000);
     if (strcmp(art, "GET") == 0)
     {
@@ -234,7 +271,8 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
         answer_header[5] = 0;
 
         //printf("set Key: %s, Value: %s\n ",key,value);
-
+        if (answer_header[0] < 128)
+            answer_header += 128;
         answer_header[0] = 0b00001010;
         answer_header[1] = transactionId; // no ID
         add_value(key, value);
@@ -256,68 +294,43 @@ void nachricht_bearbeiten(int clientsocket, char *key, unsigned int key_length, 
     }
 }
 
-void read_header_peer(char **key, char *transaktions_id, uint16_t *id_absender, char **ip_absender, char **port_absender,
-                      char **value,
-                      unsigned char *header)
+void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+                      unsigned char **value,
+                      unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
+    printf("\n %s \n", header);
+    *key_length = (header[2] << 8) + header[3];
+    *value_length = (header[4] << 8) + header[5];
+    *transaktions_id = header[1];
+    *key = malloc(*key_length + 1);
+    *value = malloc(*value_length + 1);
+    char ipaddr[INET_ADDRSTRLEN];
+    *ip_absender = malloc(5);
+    *port_absender = malloc(3);
 
-    //Länge von key und value holen
-    uint16_t key_length;
-    uint16_t value_length;
+    //Copy value, key, port and id
 
-    //Lesen länge von value und key und tauchen wir den byte order
-    memcpy(&key_length, header + 2, 2);
-    memcpy(&value_length, header + 4, 2);
+    memcpy(id_absender, &header[6], 2);
+    memcpy(*ip_absender, &header[8], 4);
+    memcpy(*port_absender, &header[12], 2);
+    memcpy(*key, &header[14], *key_length);
+    memcpy(*value, &header[14 + *key_length], *value_length);
 
-    // key_length = ntohs(key_length);
-    // value_length = ntohs(value_length);
+    //inet_ntop(AF_INET, ip_absender, ipaddr, INET_ADDRSTRLEN);
+    printf("Id absender : %u\n", *id_absender);
+    printf("Port absender %s\n", *port_absender);
+    printf("Ip absender : %s\n", *ip_absender);
+    printf("keylength: %u", *key_length);
+    printf("valuelength: %u", *value_length);
+    printf("key: %s\n", *key);
+    printf("value: %s\n", *value);
 
-    //printf("Key length %u ", key_length);
-    //printf("Value length %u ", value_length);
-
-    //Header lesen und speichern in den deklarierten Variablen, da wir schon ein pointer als parameter haben
-    // übergeben das einfach in memcpy
-    memcpy(transaktions_id, header + 1, 1);
-    memcpy(id_absender, header + 6, 2);
-    memcpy(port_absender, header + 12, 2);
-    *ip_absender = malloc(4);
-    memcpy(ip_absender, header + 8, 4);
-    uint16_t test = ntohs(*id_absender);
-    printf("T id : %s\n", transaktions_id);
-    printf("Id : %u\n", *id_absender);
-    printf("Ip : %s\n", *ip_absender);
-    printf("Port : %s\n", *port_absender);
-
-    //Hier Valgrind meckert wegen conditional jump or move depends on uninitialised value
-    if (key_length > 0)
-    {
-        *key = (char *)malloc(key_length + 1);
-        memcpy(*key, header + 14, key_length);
-        key[key_length] = '\0';
-        if (*key != NULL)
-        {
-            //printf("Key :  %s\n", *key);
-        }
-    }
-    else
-    {
-        *key = NULL;
-    }
-    if (value_length > 0)
-    {
-        *value = (char *)malloc(value_length + 1);
-        memcpy(*value, header + 14 + key_length, value_length);
-        value[value_length] = '\0';
-        //printf("Value : %s\n", *value);
-    }
-    else
-    {
-        *value = NULL;
-    }
+    //    key[*key_length] = '\0';
+    //    value[*value_length] = '\0';
 }
 
-void read_header_client(struct peer *current_peer, char **key, char *transaktions_id, uint16_t *id_absender, char **ip_absender, char **port_absender,
-                        char **value,
+void read_header_client(struct peer *current_peer, unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+                        unsigned char **value,
                         unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
 
@@ -346,18 +359,18 @@ void read_header_client(struct peer *current_peer, char **key, char *transaktion
     strcpy(*port_absender, current_peer->current.port);
     strcpy(*ip_absender, current_peer->current.add);
 
-    //printf("Id absender : %u\n", *id_absender);
-    //printf("Port absender %s\n", *port_absender);
-    //printf("Ip absender : %s\n", *ip_absender);
-    //printf("keylength: %u", *key_length);
-    //printf("valuelength: %u", *value_length);
-    //printf("key: %s\n", *key);
-    //printf("value: %s\n", *value);
+    printf("Id absender : %u\n", *id_absender);
+    printf("Port absender %s\n", *port_absender);
+    printf("Ip absender : %s\n", *ip_absender);
+    printf("keylength: %u", *key_length);
+    printf("valuelength: %u", *value_length);
+    printf("key: %s\n", *key);
+    printf("value: %s\n", *value);
 }
 
 //------------------- Main
 
-int main(int argc, char *argv[])
+int main(int argc, unsigned char *argv[])
 {
     if (argc != 10)
     {
@@ -478,9 +491,9 @@ int main(int argc, char *argv[])
             //    printf("recv success\n");
         }
 
-        int internal = isNthBitSet(receive_header[0], 1);
+        int internal = isNthBitSet(receive_header[0], 0);
 
-        char *art;
+        unsigned char *art;
         int isGet = isNthBitSet(receive_header[0], 5);
         int isSet = isNthBitSet(receive_header[0], 6);
         int isDelete = isNthBitSet(receive_header[0], 7);
@@ -511,21 +524,22 @@ int main(int argc, char *argv[])
 
         unsigned int key_length;
         unsigned int value_length;
-        char *key;
-        char transaktions_id;
+        unsigned char *key;
+        unsigned char transaktions_id;
         uint16_t id_absender;
-        char *port_absender;
-        char *ip_absender;
-        char *value;
+        unsigned char *port_absender;
+        unsigned char *ip_absender;
+        unsigned char *value;
 
         if (internal)
         {
             //printf("read header peer...\n");
-            read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, answer_header);
+            read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, (&key_length), (&value_length));
         }
         else
         {
             //printf("read header client...\n");
+            csocket = client_socket;
             read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
             //nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
@@ -534,8 +548,8 @@ int main(int argc, char *argv[])
 
         // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
         // mod % 2^16, da es der wertebereich ist
-        char *nextPeerIP = current_peer->nachfolger.add;
-        char *nextPeerPort = current_peer->nachfolger.port;
+        unsigned char *nextPeerIP = current_peer->nachfolger.add;
+        unsigned char *nextPeerPort = current_peer->nachfolger.port;
         unsigned int hash_value = (hash(key, (key_length))) % 65536;
         printf("hashs %d with key: %s\n", hash_value, key);
 
@@ -557,14 +571,14 @@ int main(int argc, char *argv[])
             {
                 //Dann current ist dafür zuständig
                 printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
-                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+                nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             // hash € {0, current_peer_id}
             else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
             {
                 printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Dann current ist dafür zuständig
-                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+                nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             else
             {
@@ -580,7 +594,7 @@ int main(int argc, char *argv[])
             {
                 printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Dann current ist dafür zuständig
-                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
+                nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             else
             {
