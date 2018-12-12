@@ -159,7 +159,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
     int nextPeersocket = 0;
     struct addrinfo peer_info_config;
     struct addrinfo *results;
-    printf("bearbeitende port: %s\n", port_absender);
+    //printf("bearbeitende port: %s\n", port_absender);
 
     uint16_t *ID = &peerID;
 
@@ -196,7 +196,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
     //Fall 1 - current peer acts as the gate:
     if (!isNthBitSet(receive_header[0], 0))
     {
-        printf("  FALL 1  \n");
+        //printf("  FALL 1  \n");
         //copy client header:
         memcpy(answer_header, receive_header, 6);
         answer_header[0] += 128;
@@ -219,8 +219,8 @@ void nachricht_bearbeiten(int clientsocket, unsigned char *key, unsigned int key
 {
     //printf("bearbeite Nachricht\n");
 
-    printf("bearbeitende ip: %s\n", ip_absender);
-    printf("bearbeitende id: %d\n", id_absender);
+    //printf("bearbeitende ip: %s\n", ip_absender);
+    //printf("bearbeitende id: %d\n", id_absender);
     memset(answer_header, 0, 1000);
     if (strcmp(art, "GET") == 0)
     {
@@ -298,7 +298,7 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
                       unsigned char **value,
                       unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
-    printf("\n %s \n", header);
+    //printf("\n %s \n", header);
     *key_length = (header[2] << 8) + header[3];
     *value_length = (header[4] << 8) + header[5];
     *transaktions_id = header[1];
@@ -315,7 +315,7 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
     memcpy(*port_absender, &header[12], 2);
     memcpy(*key, &header[14], *key_length);
     memcpy(*value, &header[14 + *key_length], *value_length);
-
+    /*
     //inet_ntop(AF_INET, ip_absender, ipaddr, INET_ADDRSTRLEN);
     printf("Id absender : %u\n", *id_absender);
     printf("Port absender %s\n", *port_absender);
@@ -324,7 +324,7 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
     printf("valuelength: %u", *value_length);
     printf("key: %s\n", *key);
     printf("value: %s\n", *value);
-
+*/
     //    key[*key_length] = '\0';
     //    value[*value_length] = '\0';
 }
@@ -358,7 +358,7 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
     memcpy(id_absender, &current_peer->current.id, 2);
     strcpy(*port_absender, current_peer->current.port);
     strcpy(*ip_absender, current_peer->current.add);
-
+    /*
     printf("Id absender : %u\n", *id_absender);
     printf("Port absender %s\n", *port_absender);
     printf("Ip absender : %s\n", *ip_absender);
@@ -366,6 +366,7 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
     printf("valuelength: %u", *value_length);
     printf("key: %s\n", *key);
     printf("value: %s\n", *value);
+    */
 }
 
 //------------------- Main
@@ -544,14 +545,14 @@ int main(int argc, unsigned char *argv[])
             //nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id);
         }
 
-        //nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
+        nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
         // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
         // mod % 2^16, da es der wertebereich ist
         unsigned char *nextPeerIP = current_peer->nachfolger.add;
         unsigned char *nextPeerPort = current_peer->nachfolger.port;
         unsigned int hash_value = (hash(key, (key_length))) % 65536;
-        printf("hashs %d with key: %s\n", hash_value, key);
+        //printf("hashs %d with key: %s\n", hash_value, key);
 
         //Prüfen ob den aktuellen peer zuständig für die anfrage ist
         //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
@@ -570,20 +571,20 @@ int main(int argc, unsigned char *argv[])
             if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
             {
                 //Dann current ist dafür zuständig
-                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             // hash € {0, current_peer_id}
             else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
             {
-                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Dann current ist dafür zuständig
                 nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             else
             {
                 //Nicht zuständig, dann weiter leiten
-                printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
                 nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
             }
         }
@@ -592,13 +593,13 @@ int main(int argc, unsigned char *argv[])
             //Fall 2: also normalen Fall
             if (hash_value <= current_peer->current.id && hash_value > current_peer->vorganger.id)
             {
-                printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //printf("Current ID: %d, Vorgaenger ID: %d, Bearbeiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Dann current ist dafür zuständig
                 nachricht_bearbeiten(csocket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender);
             }
             else
             {
-                printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
+                //printf("Current ID: %d, Vorgaenger ID: %d, Weiterleiten \n", current_peer->current.id, current_peer->vorganger.id);
                 //Nicht zuständig, dann weiter leiten
                 nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
             }
