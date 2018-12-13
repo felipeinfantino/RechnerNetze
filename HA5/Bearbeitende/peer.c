@@ -167,7 +167,6 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
     //Fall 1 - current peer acts as the gate:
     if (!isNthBitSet(receive_header[0], 0) && !isNthBitSet(receive_header[0], 4))
     {
-        printf("Fall 1\n");
         //copy client header:
         memcpy(answer_header, receive_header, 6);
         answer_header[0] += 128;
@@ -196,7 +195,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
 void nachricht_bearbeiten(int clientsocket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length,
                           unsigned char *art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender, unsigned char *receive_header)
 {
-    memset(answer_header, 0, 1000);
+    //memset(answer_header, 0, 1000);
     if (strcmp(art, "GET") == 0)
     {
         answer_header[0] = 0b00001100;
@@ -218,20 +217,23 @@ void nachricht_bearbeiten(int clientsocket, unsigned char *key, unsigned int key
             }
         }
         // add value_length to answer
-        length = strlen(found->value);
-        LSBMAX = 255;
-        LSB = strlen(found->value) & LSBMAX;
-        MSB = (length - LSB) >> 8;
-        answer_header[4] = MSB;
-        answer_header[5] = LSB;
-        value = found->value;
-        value_length = strlen(value);
-        if (!isNthBitSet(receive_header[0], 0))
+        else
         {
+            length = strlen(found->value);
+            LSBMAX = 255;
+            LSB = strlen(found->value) & LSBMAX;
+            MSB = (length - LSB) >> 8;
+            answer_header[4] = MSB;
+            answer_header[5] = LSB;
+            value = found->value;
+            value_length = strlen(value);
+            if (!isNthBitSet(receive_header[0], 0))
+            {
 
-            memcpy(&answer_header[6 + key_length], value, value_length);
-            memcpy(&answer_header[6], key, key_length);
-            send(clientsocket, answer_header, 1000, 0);
+                memcpy(&answer_header[6 + key_length], value, value_length);
+                memcpy(&answer_header[6], key, key_length);
+                send(clientsocket, answer_header, 1000, 0);
+            }
         }
     }
     if (strcmp(art, "SET") == 0)
@@ -265,10 +267,11 @@ void nachricht_bearbeiten(int clientsocket, unsigned char *key, unsigned int key
             send(clientsocket, answer_header, 1000, 0);
         }
     }
+
     if (isNthBitSet(receive_header[0], 0))
     {
         answer_header[0] += 128;
-        nachricht_weiterleiten(ip_absender, port_absender, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
+        nachricht_weiterleiten(ip_absender, port_absender, answer_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
     }
 }
 
@@ -298,11 +301,12 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
     //copy and convert port:
     uint16_t port_intrep;
     memcpy(&port_intrep, &header[12], 2);
-    printf("%d \n", port_intrep);
-    //char *portaddress;
-    ///sprintf(portaddress, "%d", port_intrep);
-    //memcpy(*port_absender, portaddress, strlen(portaddress));
-
+    //printf("%d \n", port_intrep);
+    char *portaddress = malloc(5);
+    sprintf(portaddress, "%d", port_intrep);
+    *port_absender = malloc(5);
+    //printf("%s \n", portaddress);
+    memcpy(*port_absender, portaddress, strlen(portaddress));
     memcpy(*key, &header[14], *key_length);
     memcpy(*value, &header[14 + *key_length], *value_length);
 
@@ -486,21 +490,17 @@ int main(int argc, unsigned char *argv[])
         unsigned char *ip_absender;
         unsigned char *value;
 
-        printf("CURRENT ID ABSENDER: %d", id_absender);
         //Wenn es intern ist, dann lesen wir read_header_peer, andersfalls lesen wir read_header_client
-        if (internal == 0 && isNthBitSet(receive_header[0], 4))
+        if (internal == 1 && isNthBitSet(receive_header[0], 4))
         {
-            printf("(internal == 0 && isNthBitSet(receive_header[0], 4) \n");
-            send_to_client(receive_header, answer_header, csocket);
+            printf("\n");
         }
         else if (internal)
         {
-            printf("internal \n");
             read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, (&key_length), (&value_length));
         }
         else
         {
-            printf("else \n");
             csocket = client_socket;
             read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
         }
@@ -523,7 +523,11 @@ int main(int argc, unsigned char *argv[])
 
         //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
 
-        if (current_peer->current.id < current_peer->vorganger.id)
+        if (isNthBitSet(receive_header[0], 4))
+        {
+            send_to_client(receive_header, answer_header, csocket);
+        }
+        else if (current_peer->current.id < current_peer->vorganger.id)
         {
             //hash > last
             if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
@@ -555,8 +559,8 @@ int main(int argc, unsigned char *argv[])
                 nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
             }
         }
-        //if (internal == 1)
-        close(client_socket);
+        if (internal == 1)
+            close(client_socket);
     }
     close(server_socket);
     freeaddrinfo(results);
