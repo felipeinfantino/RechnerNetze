@@ -422,28 +422,27 @@ void send_join(struct peer *toJoin)
     printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
 }
 
-void send_notify(struct peer *toJoin)
+void send_notify(unsigned char *ip_absender, unsigned char *port_absender, struct peer *toJoin)
 {
-
     printf("Enter send notify nachricht\n");
     unsigned char joinMessage[9];
-    joinMessage[0] = 0b11000000;
+    joinMessage[0] = 0b10100000;
     //copy ID
-    uint16_t ID = toJoin->current.id;
+    uint16_t ID = toJoin->vorganger.id;
     uint16_t *ID_pointer = &ID;
     memcpy(joinMessage + 1, ID_pointer, 2);
     //copy IP
     struct in_addr in;
     in.s_addr = 0;
     char *ip = malloc(20);
-    memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
+    memcpy(ip, toJoin->vorganger.add, strlen(toJoin->vorganger.add));
     inet_aton(ip, &in);
     uint32_t IP = in.s_addr;
     uint32_t *IP_pointer = &IP;
     memcpy(joinMessage + 3, IP_pointer, 4);
     //copy port
     uint16_t port;
-    str_to_uint16(toJoin->current.port, &port);
+    str_to_uint16(toJoin->vorganger.port, &port);
     uint16_t *port_pointer = &port;
     memcpy(joinMessage + 7, port_pointer, 2);
 
@@ -459,7 +458,7 @@ void send_notify(struct peer *toJoin)
     peer_info_config.ai_socktype = SOCK_STREAM;
 
     //get host information and load it into *results
-    if (getaddrinfo(toJoin->nachfolger.add, toJoin->nachfolger.port, &peer_info_config, &results) != 0)
+    if (getaddrinfo(ip_absender, port_absender, &peer_info_config, &results) != 0)
 
     {
         errno = EINVAL;
@@ -487,7 +486,7 @@ void send_stabilize(struct peer *toJoin)
 
     printf("Enter send notify nachricht\n");
     unsigned char joinMessage[9];
-    joinMessage[0] = 0b11000000;
+    joinMessage[0] = 0b10010000;
     //copy ID
     uint16_t ID = toJoin->current.id;
     uint16_t *ID_pointer = &ID;
@@ -741,6 +740,7 @@ int main(int argc, unsigned char *argv[])
 
             if (isNotify)
             {
+                printf("Notifying\n");
                 //Do the notify stuff
                 //copy ID
                 memcpy(&id_absender, receive_header + 1, 2);
@@ -761,7 +761,6 @@ int main(int argc, unsigned char *argv[])
                 printf("IP: %s\n", ip_absender);
                 printf("port: %s\n", port_absender);
 
-                printf("Notifying \n");
                 current_peer->vorganger.id = id_absender;
                 current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
                 strcpy(current_peer->vorganger.add, ip_absender);
@@ -772,15 +771,33 @@ int main(int argc, unsigned char *argv[])
                 printf("IP aktualisiert : %s\n", current_peer->vorganger.add);
                 printf("port aktualisiert: %s\n", current_peer->vorganger.port);
 
-                printf("Notifying\n");
                 continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
             }
 
             if (isStabilize)
             {
-                //Do the stabilize stuff
-
                 printf("Stabilizing\n");
+                //Do the stabilize stuff
+                //copy ID
+                memcpy(&id_absender, receive_header + 1, 2);
+
+                struct in_addr in;
+                int32_t ip_intrep;
+                memcpy(&ip_intrep, receive_header + 3, 4);
+                in.s_addr = ip_intrep;
+                ip_absender = inet_ntoa(in);
+                uint16_t port_intrep;
+                memcpy(&port_intrep, receive_header + 7, 2);
+                //printf("%d \n", port_intrep);
+                port_absender = (unsigned char *)malloc(5);
+                sprintf(port_absender, "%d", port_intrep);
+                //printf("%s \n", portaddress);
+
+                printf("ID: %d\n", id_absender);
+                printf("IP: %s\n", ip_absender);
+                printf("port: %s\n", port_absender);
+
+                send_notify(ip_absender, port_absender, current_peer);
                 continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
             }
 
