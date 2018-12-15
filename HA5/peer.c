@@ -448,6 +448,9 @@ int main(int argc, unsigned char *argv[])
         unsigned char receive_header[1000];
         unsigned char answer_header[1000];
 
+        memset(receive_header, 0, 1000);
+        memset(answer_header, 0, 1000);
+
         if (recv(client_socket, &receive_header, 1000, 0) == -1)
         {
             perror("Error receiving");
