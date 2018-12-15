@@ -593,10 +593,7 @@ int main(int argc, unsigned char *argv[])
                 int32_t ip_intrep;
                 memcpy(&ip_intrep, receive_header + 3, 4);
                 in.s_addr = ip_intrep;
-                unsigned char *ipaddress = inet_ntoa(in);
-                ip_absender = malloc(strlen(ipaddress) + 1);
-                memcpy(ip_absender, ipaddress, strlen(ipaddress));
-                //copy and convert port:
+                ip_absender = inet_ntoa(in);
                 uint16_t port_intrep;
                 memcpy(&port_intrep, receive_header + 7, 2);
                 //printf("%d \n", port_intrep);
