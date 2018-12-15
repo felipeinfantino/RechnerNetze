@@ -362,7 +362,7 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
     */
 }
 
-void send_join_nachricht(struct peer *toJoin)
+void send_join(struct peer *toJoin)
 {
 
     printf("Enter send join nachricht\n");
@@ -419,7 +419,127 @@ void send_join_nachricht(struct peer *toJoin)
         exit(1);
     }
     printf("Sending nachricht\n");
-    printf("%lu", send(nextPeersocket, &joinMessage, 9, 0));
+    printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
+}
+
+void send_notify(struct peer *toJoin)
+{
+
+    printf("Enter send notify nachricht\n");
+    unsigned char joinMessage[9];
+    joinMessage[0] = 0b11000000;
+    //copy ID
+    uint16_t ID = toJoin->current.id;
+    uint16_t *ID_pointer = &ID;
+    memcpy(joinMessage + 1, ID_pointer, 2);
+    //copy IP
+    struct in_addr in;
+    in.s_addr = 0;
+    char *ip = malloc(20);
+    memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
+    inet_aton(ip, &in);
+    uint32_t IP = in.s_addr;
+    uint32_t *IP_pointer = &IP;
+    memcpy(joinMessage + 3, IP_pointer, 4);
+    //copy port
+    uint16_t port;
+    str_to_uint16(toJoin->current.port, &port);
+    uint16_t *port_pointer = &port;
+    memcpy(joinMessage + 7, port_pointer, 2);
+
+    //Mach verbindung mit nachfolger und schicke nur diese joinMessage
+    int nextPeersocket = 0;
+    struct addrinfo peer_info_config;
+    struct addrinfo *results;
+
+    //Convert IPv4 address to binary form
+    memset(&peer_info_config, 0, sizeof(peer_info_config));
+    peer_info_config.ai_protocol = IPPROTO_TCP;
+    peer_info_config.ai_family = AF_INET;
+    peer_info_config.ai_socktype = SOCK_STREAM;
+
+    //get host information and load it into *results
+    if (getaddrinfo(toJoin->nachfolger.add, toJoin->nachfolger.port, &peer_info_config, &results) != 0)
+
+    {
+        errno = EINVAL;
+        perror("getaddrinfo error");
+        exit(1);
+    }
+
+    //create new socket using data obtained with getaddrinfo()
+    nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
+
+    //connect
+    if (connect(nextPeersocket, results->ai_addr, results->ai_addrlen) == -1)
+    {
+        close(nextPeersocket);
+        errno = ECONNREFUSED;
+        perror("connection error");
+        exit(1);
+    }
+    printf("Sending nachricht\n");
+    printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
+}
+
+void send_stabilize(struct peer *toJoin)
+{
+
+    printf("Enter send notify nachricht\n");
+    unsigned char joinMessage[9];
+    joinMessage[0] = 0b11000000;
+    //copy ID
+    uint16_t ID = toJoin->current.id;
+    uint16_t *ID_pointer = &ID;
+    memcpy(joinMessage + 1, ID_pointer, 2);
+    //copy IP
+    struct in_addr in;
+    in.s_addr = 0;
+    char *ip = malloc(20);
+    memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
+    inet_aton(ip, &in);
+    uint32_t IP = in.s_addr;
+    uint32_t *IP_pointer = &IP;
+    memcpy(joinMessage + 3, IP_pointer, 4);
+    //copy port
+    uint16_t port;
+    str_to_uint16(toJoin->current.port, &port);
+    uint16_t *port_pointer = &port;
+    memcpy(joinMessage + 7, port_pointer, 2);
+
+    //Mach verbindung mit nachfolger und schicke nur diese joinMessage
+    int nextPeersocket = 0;
+    struct addrinfo peer_info_config;
+    struct addrinfo *results;
+
+    //Convert IPv4 address to binary form
+    memset(&peer_info_config, 0, sizeof(peer_info_config));
+    peer_info_config.ai_protocol = IPPROTO_TCP;
+    peer_info_config.ai_family = AF_INET;
+    peer_info_config.ai_socktype = SOCK_STREAM;
+
+    //get host information and load it into *results
+    if (getaddrinfo(toJoin->nachfolger.add, toJoin->nachfolger.port, &peer_info_config, &results) != 0)
+
+    {
+        errno = EINVAL;
+        perror("getaddrinfo error");
+        exit(1);
+    }
+
+    //create new socket using data obtained with getaddrinfo()
+    nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
+
+    //connect
+    if (connect(nextPeersocket, results->ai_addr, results->ai_addrlen) == -1)
+    {
+        close(nextPeersocket);
+        errno = ECONNREFUSED;
+        perror("connection error");
+        exit(1);
+    }
+    printf("Sending nachricht\n");
+    printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
 }
 
 //------------------- Main
@@ -454,7 +574,7 @@ int main(int argc, unsigned char *argv[])
         sprintf(current_peer->nachfolger.add, "%.9s", argv[4]);
         sprintf(current_peer->nachfolger.port, "%.5s", argv[5]);
 
-        send_join_nachricht(current_peer);
+        send_join(current_peer);
     }
     else
     {
@@ -597,7 +717,7 @@ int main(int argc, unsigned char *argv[])
                 uint16_t port_intrep;
                 memcpy(&port_intrep, receive_header + 7, 2);
                 //printf("%d \n", port_intrep);
-                unsigned char *port_absender = (unsigned char *)malloc(5);
+                port_absender = (unsigned char *)malloc(5);
                 sprintf(port_absender, "%d", port_intrep);
                 //printf("%s \n", portaddress);
 
@@ -606,6 +726,15 @@ int main(int argc, unsigned char *argv[])
                 printf("port: %s\n", port_absender);
 
                 printf("Joining\n");
+                current_peer->vorganger.id = id_absender;
+                current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
+                strcpy(current_peer->vorganger.add, ip_absender);
+                current_peer->vorganger.port = calloc(strlen(port_absender) + 1, 1);
+                strcpy(current_peer->vorganger.port, port_absender);
+
+                printf("ID aktualisiert: %d\n", current_peer->vorganger.id);
+                printf("IP aktualisiert : %s\n", current_peer->vorganger.add);
+                printf("port aktualisiert: %s\n", current_peer->vorganger.port);
 
                 continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
             }
@@ -613,6 +742,36 @@ int main(int argc, unsigned char *argv[])
             if (isNotify)
             {
                 //Do the notify stuff
+                //copy ID
+                memcpy(&id_absender, receive_header + 1, 2);
+
+                struct in_addr in;
+                int32_t ip_intrep;
+                memcpy(&ip_intrep, receive_header + 3, 4);
+                in.s_addr = ip_intrep;
+                ip_absender = inet_ntoa(in);
+                uint16_t port_intrep;
+                memcpy(&port_intrep, receive_header + 7, 2);
+                //printf("%d \n", port_intrep);
+                port_absender = (unsigned char *)malloc(5);
+                sprintf(port_absender, "%d", port_intrep);
+                //printf("%s \n", portaddress);
+
+                printf("ID: %d\n", id_absender);
+                printf("IP: %s\n", ip_absender);
+                printf("port: %s\n", port_absender);
+
+                printf("Notifying \n");
+                current_peer->vorganger.id = id_absender;
+                current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
+                strcpy(current_peer->vorganger.add, ip_absender);
+                current_peer->vorganger.port = calloc(strlen(port_absender) + 1, 1);
+                strcpy(current_peer->vorganger.port, port_absender);
+
+                printf("ID aktualisiert: %d\n", current_peer->vorganger.id);
+                printf("IP aktualisiert : %s\n", current_peer->vorganger.add);
+                printf("port aktualisiert: %s\n", current_peer->vorganger.port);
+
                 printf("Notifying\n");
                 continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
             }
