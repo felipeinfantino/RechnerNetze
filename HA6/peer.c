@@ -369,6 +369,38 @@ void send_join_nachricht(struct peer *toJoin)
     unsigned char joinMessage[9];
     joinMessage[0] = 0b11000000;
 
+    /* uint16_t *ID_pointer = &id_absender;
+    struct in_addr in;
+    in.s_addr = 0;
+    inet_aton(ip_absender, &in);
+    uint32_t IP = in.s_addr;
+    uint32_t *IP_pointer = &IP;
+    uint16_t port;
+    if (port_absender != NULL)
+        port = atoi(port_absender);
+    uint16_t *port_pointer = &port;
+    memcpy(answer_header + 6, ID_pointer, 2);
+    memcpy(answer_header + 8, IP_pointer, 4);
+    memcpy(answer_header + 12, port_pointer, 2);
+    */
+    struct in_addr in;
+    in.s_addr = 0;
+    char *ip = malloc(20);
+    memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
+    inet_aton(ip, &in);
+    uint32_t IP = in.s_addr;
+    printf("%d \n", IP);
+    uint32_t *IP_pointer = &IP;
+    struct in_addr on;
+    int32_t ip_intrep;
+
+    on.s_addr = IP;
+    unsigned char *ipaddress = inet_ntoa(in);
+    unsigned char *ip_absender = (unsigned char *)calloc((strlen(ipaddress) + 1), 1);
+    memcpy(ip_absender, ipaddress, strlen(ipaddress));
+    printf("%s\n", ip_absender);
+    memcpy(joinMessage + 1, IP_pointer, 4);
+
     //Mach verbindung mit nachfolger und schicke nur diese joinMessage
     int nextPeersocket = 0;
     struct addrinfo peer_info_config;
@@ -522,6 +554,8 @@ int main(int argc, unsigned char *argv[])
                 perror("Error receiving");
                 exit(1);
             }
+
+            printf("%d \n", receive_header[2]);
 
             int internal = isNthBitSet(receive_header[0], 0);
             int isJoin = isNthBitSet(receive_header[0], 1);
