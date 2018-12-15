@@ -365,41 +365,27 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
 void send_join_nachricht(struct peer *toJoin)
 {
 
-    printf("Enter send join nachricht");
+    printf("Enter send join nachricht\n");
     unsigned char joinMessage[9];
     joinMessage[0] = 0b11000000;
-
-    /* uint16_t *ID_pointer = &id_absender;
-    struct in_addr in;
-    in.s_addr = 0;
-    inet_aton(ip_absender, &in);
-    uint32_t IP = in.s_addr;
-    uint32_t *IP_pointer = &IP;
-    uint16_t port;
-    if (port_absender != NULL)
-        port = atoi(port_absender);
-    uint16_t *port_pointer = &port;
-    memcpy(answer_header + 6, ID_pointer, 2);
-    memcpy(answer_header + 8, IP_pointer, 4);
-    memcpy(answer_header + 12, port_pointer, 2);
-    */
+    //copy ID
+    uint16_t ID = toJoin->current.id;
+    uint16_t *ID_pointer = &ID;
+    memcpy(joinMessage + 1, ID_pointer, 2);
+    //copy IP
     struct in_addr in;
     in.s_addr = 0;
     char *ip = malloc(20);
     memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
     inet_aton(ip, &in);
     uint32_t IP = in.s_addr;
-    printf("%d \n", IP);
     uint32_t *IP_pointer = &IP;
-    struct in_addr on;
-    int32_t ip_intrep;
-
-    on.s_addr = IP;
-    unsigned char *ipaddress = inet_ntoa(in);
-    unsigned char *ip_absender = (unsigned char *)calloc((strlen(ipaddress) + 1), 1);
-    memcpy(ip_absender, ipaddress, strlen(ipaddress));
-    printf("%s\n", ip_absender);
-    memcpy(joinMessage + 1, IP_pointer, 4);
+    memcpy(joinMessage + 3, IP_pointer, 4);
+    //copy port
+    uint16_t port;
+    str_to_uint16(toJoin->current.port, &port);
+    uint16_t *port_pointer = &port;
+    memcpy(joinMessage + 7, port_pointer, 2);
 
     //Mach verbindung mit nachfolger und schicke nur diese joinMessage
     int nextPeersocket = 0;
@@ -432,8 +418,8 @@ void send_join_nachricht(struct peer *toJoin)
         perror("connection error");
         exit(1);
     }
-    printf("Sending nachricht");
-    printf("%lu", send(nextPeersocket, &joinMessage, 10, 0));
+    printf("Sending nachricht\n");
+    printf("%lu", send(nextPeersocket, &joinMessage, 9, 0));
 }
 
 //------------------- Main
@@ -453,7 +439,15 @@ int main(int argc, unsigned char *argv[])
         sprintf(current_peer->current.add, "%.9s", argv[1]);
         sprintf(current_peer->current.port, "%.5s", argv[2]);
         //TODO da ID optional ist, muss dann geguckt werden ob es übergeben wurde oder nicht
-        str_to_uint16(argv[3], &current_peer->current.id);
+
+        if (argc == 5)
+        {
+            current_peer->current.id = 0;
+        }
+        else
+        {
+            str_to_uint16(argv[3], &current_peer->current.id);
+        }
 
         //Nachfolger TODO was machen wir mit der NachfolgerID , wieso soll man das nicht übergeben??
         //str_to_uint16(argv[7], &current_peer->nachfolger.id);
@@ -562,28 +556,6 @@ int main(int argc, unsigned char *argv[])
             int isNotify = isNthBitSet(receive_header[0], 2);
             int isStabilize = isNthBitSet(receive_header[0], 3);
 
-            if (isJoin)
-            {
-                //Do the join stuff
-                printf("Joining\n");
-                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
-            }
-
-            if (isNotify)
-            {
-                //Do the notify stuff
-                printf("Notifying\n");
-                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
-            }
-
-            if (isStabilize)
-            {
-                //Do the stabilize stuff
-
-                printf("Stabilizing\n");
-                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
-            }
-
             unsigned char *art = calloc(3, 3);
             int isGet = isNthBitSet(receive_header[0], 5);
             int isSet = isNthBitSet(receive_header[0], 6);
@@ -610,6 +582,51 @@ int main(int argc, unsigned char *argv[])
             unsigned char *port_absender;
             unsigned char *ip_absender;
             unsigned char *value;
+
+            if (isJoin)
+            {
+                //Do the join stuff
+                //copy ID
+                memcpy(&id_absender, receive_header + 1, 2);
+
+                struct in_addr in;
+                int32_t ip_intrep;
+                memcpy(&ip_intrep, receive_header + 3, 4);
+                in.s_addr = ip_intrep;
+                unsigned char *ipaddress = inet_ntoa(in);
+                ip_absender = malloc(strlen(ipaddress) + 1);
+                memcpy(ip_absender, ipaddress, strlen(ipaddress));
+                //copy and convert port:
+                uint16_t port_intrep;
+                memcpy(&port_intrep, receive_header + 7, 2);
+                //printf("%d \n", port_intrep);
+                unsigned char *port_absender = (unsigned char *)malloc(5);
+                sprintf(port_absender, "%d", port_intrep);
+                //printf("%s \n", portaddress);
+
+                printf("ID: %d\n", id_absender);
+                printf("IP: %s\n", ip_absender);
+                printf("port: %s\n", port_absender);
+
+                printf("Joining\n");
+
+                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
+            }
+
+            if (isNotify)
+            {
+                //Do the notify stuff
+                printf("Notifying\n");
+                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
+            }
+
+            if (isStabilize)
+            {
+                //Do the stabilize stuff
+
+                printf("Stabilizing\n");
+                continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
+            }
 
             if (internal)
             {
