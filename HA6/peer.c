@@ -477,14 +477,13 @@ void send_notify(unsigned char *ip_absender, unsigned char *port_absender, struc
         perror("connection error");
         exit(1);
     }
-    printf("Sending nachricht\n");
     printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
 }
 
 void send_stabilize(struct peer *toJoin)
 {
 
-    printf("Enter send notify nachricht\n");
+    printf("Enter send stabilize nachricht\n");
     unsigned char joinMessage[9];
     joinMessage[0] = 0b10010000;
     //copy ID
@@ -537,7 +536,6 @@ void send_stabilize(struct peer *toJoin)
         perror("connection error");
         exit(1);
     }
-    printf("Sending nachricht\n");
     printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
 }
 
@@ -760,17 +758,19 @@ int main(int argc, unsigned char *argv[])
                 printf("ID: %d\n", id_absender);
                 printf("IP: %s\n", ip_absender);
                 printf("port: %s\n", port_absender);
+                if(current_peer->nachfolger.id != id_absender){
+                    current_peer->nachfolger.id = id_absender;
+                    current_peer->nachfolger.add = calloc(strlen(ip_absender) + 1, 1);
+                    strcpy(current_peer->nachfolger.add, ip_absender);
+                    current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
+                    strcpy(current_peer->nachfolger.port, port_absender);
 
-                current_peer->vorganger.id = id_absender;
-                current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
-                strcpy(current_peer->vorganger.add, ip_absender);
-                current_peer->vorganger.port = calloc(strlen(port_absender) + 1, 1);
-                strcpy(current_peer->vorganger.port, port_absender);
-
-                printf("ID aktualisiert: %d\n", current_peer->vorganger.id);
-                printf("IP aktualisiert : %s\n", current_peer->vorganger.add);
-                printf("port aktualisiert: %s\n", current_peer->vorganger.port);
-
+                    printf("ID aktualisiert: %d\n", current_peer->nachfolger.id);
+                    printf("IP aktualisiert : %s\n", current_peer->nachfolger.add);
+                    printf("port aktualisiert: %s\n", current_peer->nachfolger.port);
+                }else {
+                    printf("still my successor\n");
+                }
                 continue; //continue weil wir wollen keine header lesen und auch keine Nachricht weiterleiten bzw bearbeiten
             }
 
