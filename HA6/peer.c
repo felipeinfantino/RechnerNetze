@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include "uthash.h"
 #include <errno.h>
+#include <pthread.h>
 
 #define HEAD 6
 
@@ -522,7 +523,7 @@ void send_stabilize(struct peer *toJoin)
     {
         errno = EINVAL;
         perror("getaddrinfo error");
-        exit(1);
+        //exit(1);
     }
 
     //create new socket using data obtained with getaddrinfo()
@@ -532,11 +533,19 @@ void send_stabilize(struct peer *toJoin)
     if (connect(nextPeersocket, results->ai_addr, results->ai_addrlen) == -1)
     {
         close(nextPeersocket);
-        errno = ECONNREFUSED;
+        //errno = ECONNREFUSED;
         perror("connection error");
-        exit(1);
+        //exit(1);
     }
     printf("%lu\n", send(nextPeersocket, &joinMessage, 9, 0));
+}
+
+void* threadFunction(void *arg){
+    while(1){
+        printf("stabilizing\n");
+        send_stabilize(arg);
+        sleep(5);
+    }
 }
 
 //------------------- Main
@@ -642,6 +651,9 @@ int main(int argc, unsigned char *argv[])
             perror("Error while listening");
             exit(1);
         }
+
+        pthread_t tid[1];
+        pthread_create(&tid[1], NULL, &threadFunction, current_peer);
 
         while (1)
         {
