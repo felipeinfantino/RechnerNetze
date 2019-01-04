@@ -4,7 +4,7 @@ base=$1
 echo Starting measurement 
 while read -r line; do
 	rand+=($line)
-done < rand.txt
+done < rand2.txt
 
 num=9
 if [ $# -eq 2 ]
@@ -21,7 +21,6 @@ for i in `seq 0 $num`; do
 	index=0;
 	for r in "${rand[@]}"; do
 		./client 127.0.0.1 $port SET $r meaninglessValue $((index % 128)) > /dev/null
-		echo "Index = $index"
 		if [ $? -ne 0 ]; then
 			exit 1
 		fi
@@ -39,7 +38,6 @@ for i in `seq 0 $num`; do
 	index=0;
 	for r in "${rand[@]}"; do
 		./client 127.0.0.1 $port SET $r meaninglessValue $((index % 128)) > /dev/null
-		echo "Index = $index"
 		if [ $? -ne 0 ]; then
 			exit 1
 		fi

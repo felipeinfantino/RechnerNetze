@@ -9,7 +9,6 @@
 #include <pthread.h>
 #include <time.h>
 #include "uthash.h"
-#include <math.h>
 
 #define HEAD 6
 
@@ -30,20 +29,6 @@ struct peer
     int isBase;
 };
 
-struct finger_table_struct
-{
-    int index;
-    int nodeID;
-    UT_hash_handle hh;
-};
-
-struct transaction_hash_struct
-{
-    int transactionId;
-    int hash;
-    UT_hash_handle hh;
-};
-
 struct intern_hash_table_struct
 {
     unsigned char *key;
@@ -57,10 +42,9 @@ struct transaction_socket_struct
     int sockfd;
     UT_hash_handle hh;
 };
-struct finger_table_struct *fingertable = NULL;
+
 struct intern_hash_table_struct *hashtable = NULL;
-struct transaction_socket_struct *transock = NULL;
-struct transaction_hash_struct *tranhash = NULL;
+struct transaction_socket_struct *tranhash = NULL;
 //------------------- Funktionen die Structs zurückgeben
 
 struct intern_hash_table_struct *find_value(unsigned char key[])
@@ -73,46 +57,8 @@ struct intern_hash_table_struct *find_value(unsigned char key[])
 struct transaction_socket_struct *find_socket(int transactionId)
 {
     struct transaction_socket_struct *s;
-    HASH_FIND_INT(transock, &transactionId, s);
-    return s;
-}
-
-struct transaction_hash_struct *find_hash(int transactionId)
-{
-    struct transaction_hash_struct *s;
     HASH_FIND_INT(tranhash, &transactionId, s);
     return s;
-}
-
-struct finger_table_struct *find_finger(int index)
-{
-    struct finger_table_struct *s;
-    HASH_FIND_INT(fingertable, &index, s);
-    return s;
-}
-
-void add_finger(int index, int nodeID)
-{
-    struct finger_table_struct *s = NULL;
-    s = (struct finger_table_struct *)malloc(sizeof *s);
-    s->index = index;
-    s->nodeID = nodeID;
-    HASH_ADD_INT(fingertable, index, s); /* id: name of  transactionId field */
-}
-
-void add_hash(int transactionId, int hash)
-{
-    struct transaction_hash_struct *s = NULL;
-    s = (struct transaction_hash_struct *)malloc(sizeof *s);
-    s->transactionId = transactionId;
-    s->hash = hash;
-    HASH_ADD_INT(tranhash, transactionId, s); /* id: name of  transactionId field */
-}
-
-void delete_finger(struct finger_table_struct *s)
-{
-    HASH_DEL(fingertable, s);
-    free(s);
 }
 
 void add_sockfd(int transactionId, int sockfd)
@@ -123,13 +69,14 @@ void add_sockfd(int transactionId, int sockfd)
         s = (struct transaction_socket_struct *)malloc(sizeof *s);
         s->transactionId = transactionId;
         s->sockfd = sockfd;
-        HASH_ADD_INT(transock, transactionId, s); /* id: name of  transactionId field */
+
+        HASH_ADD_INT(tranhash, transactionId, s); /* id: name of  transactionId field */
     }
 }
 
 void delete_sockfd(struct transaction_socket_struct *s)
 {
-    HASH_DEL(transock, s);
+    HASH_DEL(tranhash, s);
     free(s);
 }
 
@@ -159,11 +106,6 @@ void str_to_uint16(const unsigned char *str, uint16_t *res)
     char *end;
     long val = strtol(str, &end, 10);
     *res = (uint16_t)val;
-}
-
-int formula(uint16_t current_id, int i)
-{
-    return ((int)(current_id + pow(2.0, i)) % (int)(pow(2.0, 16.0)));
 }
 
 //------------------- Funktionen die void zurückgeben
@@ -444,7 +386,6 @@ void *output_structure(void *arg)
 
 void send_to_client(unsigned char *receive_header, int client_socket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length, int transactionId)
 {
-
     unsigned char *answer = (unsigned char *)malloc(1000);
     memcpy(answer, receive_header, HEAD);
     memcpy(answer + 6 + key_length, value, value_length);
@@ -551,7 +492,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
 }
 
 void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length,
-                          int art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender, unsigned char *receive_header, uint16_t current_id)
+                          int art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender, unsigned char *receive_header)
 {
     memset(answer_header, 0, 1000);
     if (art == 1)
@@ -633,18 +574,18 @@ void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int ke
 
     if (isNthBitSet(receive_header[0], 0))
     {
-        nachricht_weiterleiten(ip_absender, port_absender, answer_header, answer_header, key_length, key, value, value_length, current_id, ip_absender, port_absender);
+        nachricht_weiterleiten(ip_absender, port_absender, answer_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
     }
 }
 
-void read_header_peer(unsigned char **key, unsigned char *transactionId, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
                       unsigned char **value,
                       unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
 
     *key_length = (header[2] << 8) + header[3];
     *value_length = (header[4] << 8) + header[5];
-    *transactionId = header[1];
+    *transaktions_id = header[1];
     *key = (unsigned char *)calloc(*key_length + 1, 1);
     *value = (unsigned char *)calloc(*value_length + 1, 1);
 
@@ -671,6 +612,7 @@ void read_header_peer(unsigned char **key, unsigned char *transactionId, uint16_
     memcpy(*port_absender, portaddress, strlen(portaddress));
     memcpy(*key, &header[14], *key_length);
     memcpy(*value, &header[14 + *key_length], *value_length);
+
     /*
     printf("Id absender : %u\n", *id_absender);
     printf("Port absender %s\n", *port_absender);
@@ -685,14 +627,14 @@ void read_header_peer(unsigned char **key, unsigned char *transactionId, uint16_
     */
 }
 
-void read_header_client(struct peer *current_peer, unsigned char **key, unsigned char *transactionId, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+void read_header_client(struct peer *current_peer, unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
                         unsigned char **value,
                         unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
 
     *key_length = (header[2] << 8) + header[3];
     *value_length = (header[4] << 8) + header[5];
-    *transactionId = header[1];
+    *transaktions_id = header[1];
     *key = (unsigned char *)calloc(*key_length + 1, 1);
     *value = (unsigned char *)calloc(*value_length + 1, 1);
     *ip_absender = (unsigned char *)malloc(strlen(current_peer->current.add) + 1);
@@ -718,30 +660,6 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
     printf("key: %s\n", *key);
     printf("value: %s\n", *value);
     */
-}
-
-void updateFingertable(int idVonN, int hash, uint16_t current_id)
-{
-    for (int i = 0; i < 16; i++)
-    {
-        int start = formula(current_id, i);
-        if (start >= hash && start <= idVonN)
-        {
-            add_finger(start, idVonN);
-        }
-        else
-        {
-            struct finger_table_struct *tempStruct = find_finger(start);
-            if (tempStruct != NULL)
-            {
-                int eintrag = tempStruct->nodeID;
-                if (start > idVonN && eintrag < idVonN)
-                {
-                    add_finger(start, idVonN);
-                }
-            }
-        }
-    }
 }
 
 //------------------- Main
@@ -817,16 +735,6 @@ int main(int argc, unsigned char *argv[])
         send_join(current_peer);
     //create thread for printing the structure
     pthread_create(&thread_id[1], NULL, &output_structure, current_peer);
-    uint16_t current_id = current_peer->current.id;
-    //create "blank" finger tables
-
-    if (current_peer->isBase == 0)
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            add_finger(formula(current_id, i), current_peer->nachfolger.id);
-        }
-    }
 
     while (1)
     {
@@ -869,7 +777,7 @@ int main(int argc, unsigned char *argv[])
         unsigned int key_length;
         unsigned int value_length;
         unsigned char *key;
-        unsigned char transactionId;
+        unsigned char transaktions_id;
         unsigned char *value;
 
         if (isGet)
@@ -915,15 +823,6 @@ int main(int argc, unsigned char *argv[])
                 current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
                 strcpy(current_peer->nachfolger.port, port_absender);
                 current_peer->isBase = 0;
-
-                //update the finger table for first peer
-                if (current_peer->isBase)
-                {
-                    for (int i = 0; i < 16; i++)
-                    {
-                        add_finger(formula(current_id, i), current_peer->nachfolger.id);
-                    }
-                }
             }
             //logic for finding the correct spot in the ring
             else if (current_peer->current.id < current_peer->vorganger.id)
@@ -1045,13 +944,13 @@ int main(int argc, unsigned char *argv[])
         {
             if (internal)
             {
-                read_header_peer(&key, &transactionId, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+                read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
             }
             else
             {
-                read_header_client(current_peer, &key, &transactionId, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
-                add_sockfd(transactionId, client_socket);
-                printf("%d, %d \n", transactionId, client_socket);
+                read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+                add_sockfd(transaktions_id, client_socket);
+                printf("%d, %d \n", transaktions_id, client_socket);
             }
             nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
@@ -1075,24 +974,21 @@ int main(int argc, unsigned char *argv[])
 
             if (isNthBitSet(receive_header[0], 4))
             {
-                struct transaction_socket_struct *found = find_socket(transactionId);
+                struct transaction_socket_struct *found = find_socket(transaktions_id);
                 int csocket = found->sockfd;
-                // struct transaction_hash_struct *found_hash = find_hash(transactionId);
-                // int new_hash = found_hash->hash;
-                updateFingertable(id_absender, hash_value, current_id);
-                send_to_client(receive_header, csocket, key, key_length, value, value_length, transactionId);
+                send_to_client(receive_header, csocket, key, key_length, value, value_length, transaktions_id);
             }
             else if (current_peer->current.id < current_peer->vorganger.id)
             {
                 //hash > last
                 if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
                 {
-                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header);
                 }
                 // hash € {0, current_peer_id}
                 else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
                 {
-                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header);
                 }
                 else
                 {
@@ -1106,7 +1002,7 @@ int main(int argc, unsigned char *argv[])
                 if (hash_value <= current_peer->current.id && hash_value > current_peer->vorganger.id)
                 {
                     //Dann current ist dafür zuständig
-                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header);
                 }
                 else
                 {

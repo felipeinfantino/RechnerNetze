@@ -9,12 +9,11 @@
 #include <pthread.h>
 #include <time.h>
 #include "uthash.h"
-#include <sys/select.h>
-#include <sys/types.h>
+#include <math.h>
 
 #define HEAD 6
 
-int csocket = 0;
+int yes = 1;
 //------------------- Structs
 struct id_add_port
 {
@@ -31,6 +30,20 @@ struct peer
     int isBase;
 };
 
+struct finger_table_struct
+{
+    int index;
+    int nodeID;
+    UT_hash_handle hh;
+};
+
+struct transaction_hash_struct
+{
+    int transactionId;
+    int hash;
+    UT_hash_handle hh;
+};
+
 struct intern_hash_table_struct
 {
     unsigned char *key;
@@ -38,8 +51,16 @@ struct intern_hash_table_struct
     UT_hash_handle hh;
 };
 
+struct transaction_socket_struct
+{
+    int transactionId;
+    int sockfd;
+    UT_hash_handle hh;
+};
+struct finger_table_struct *fingertable = NULL;
 struct intern_hash_table_struct *hashtable = NULL;
-
+struct transaction_socket_struct *transock = NULL;
+struct transaction_hash_struct *tranhash = NULL;
 //------------------- Funktionen die Structs zurückgeben
 
 struct intern_hash_table_struct *find_value(unsigned char key[])
@@ -47,6 +68,69 @@ struct intern_hash_table_struct *find_value(unsigned char key[])
     struct intern_hash_table_struct *s;
     HASH_FIND_STR(hashtable, key, s);
     return s;
+}
+
+struct transaction_socket_struct *find_socket(int transactionId)
+{
+    struct transaction_socket_struct *s;
+    HASH_FIND_INT(transock, &transactionId, s);
+    return s;
+}
+
+struct transaction_hash_struct *find_hash(int transactionId)
+{
+    struct transaction_hash_struct *s;
+    HASH_FIND_INT(tranhash, &transactionId, s);
+    return s;
+}
+
+struct finger_table_struct *find_finger(int index)
+{
+    struct finger_table_struct *s;
+    HASH_FIND_INT(fingertable, &index, s);
+    return s;
+}
+
+void add_finger(int index, int nodeID)
+{
+    struct finger_table_struct *s = NULL;
+    s = (struct finger_table_struct *)malloc(sizeof *s);
+    s->index = index;
+    s->nodeID = nodeID;
+    HASH_ADD_INT(fingertable, index, s); /* id: name of  transactionId field */
+}
+
+void add_hash(int transactionId, int hash)
+{
+    struct transaction_hash_struct *s = NULL;
+    s = (struct transaction_hash_struct *)malloc(sizeof *s);
+    s->transactionId = transactionId;
+    s->hash = hash;
+    HASH_ADD_INT(tranhash, transactionId, s); /* id: name of  transactionId field */
+}
+
+void delete_finger(struct finger_table_struct *s)
+{
+    HASH_DEL(fingertable, s);
+    free(s);
+}
+
+void add_sockfd(int transactionId, int sockfd)
+{
+    if (transactionId != -1 && sockfd != -1)
+    {
+        struct transaction_socket_struct *s = NULL;
+        s = (struct transaction_socket_struct *)malloc(sizeof *s);
+        s->transactionId = transactionId;
+        s->sockfd = sockfd;
+        HASH_ADD_INT(transock, transactionId, s); /* id: name of  transactionId field */
+    }
+}
+
+void delete_sockfd(struct transaction_socket_struct *s)
+{
+    HASH_DEL(transock, s);
+    free(s);
 }
 
 //------------------- Funktionen die int zurückgeben
@@ -77,6 +161,11 @@ void str_to_uint16(const unsigned char *str, uint16_t *res)
     *res = (uint16_t)val;
 }
 
+int formula(uint16_t current_id, int i)
+{
+    return ((int)(current_id + pow(2.0, i)) % (int)(pow(2.0, 16.0)));
+}
+
 //------------------- Funktionen die void zurückgeben
 void join_weiterleiten(unsigned char *receive_header, unsigned char *ip, unsigned char *port)
 {
@@ -101,14 +190,14 @@ void join_weiterleiten(unsigned char *receive_header, unsigned char *ip, unsigne
     }
     //create new socket using data obtained with getaddrinfo()
     nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-    int yes = 1;
     setsockopt(nextPeersocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
     //connect
     if (connect(nextPeersocket, results->ai_addr, results->ai_addrlen) == -1)
     {
         close(nextPeersocket);
         errno = ECONNREFUSED;
-        perror("connection error");
+        perror("connection error join weiterleiten ");
         exit(1);
     }
     //send the message and close the socket
@@ -160,7 +249,6 @@ void send_join(struct peer *toJoin)
 
     //create new socket using data obtained with getaddrinfo()
     nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-    int yes = 1;
     setsockopt(nextPeersocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
     //connect
@@ -168,7 +256,7 @@ void send_join(struct peer *toJoin)
     {
         close(nextPeersocket);
         errno = ECONNREFUSED;
-        perror("connection error");
+        perror("connection error send join");
         exit(1);
     }
     //send the message and close the socket
@@ -228,7 +316,6 @@ void send_notify(unsigned char *ip_absender, unsigned char *port_absender, struc
 
         //create new socket using data obtained with getaddrinfo()
         nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-        int yes = 1;
         setsockopt(nextPeersocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
         //connect
@@ -236,7 +323,7 @@ void send_notify(unsigned char *ip_absender, unsigned char *port_absender, struc
         {
             close(nextPeersocket);
             errno = ECONNREFUSED;
-            perror("connection error");
+            perror("connection error send notify");
             exit(1);
         }
         //send the message and close the socket
@@ -301,9 +388,7 @@ void send_stabilize(struct peer *current)
         }
 
         //create new socket using data obtained with getaddrinfo()
-
         nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-        int yes = 1;
         setsockopt(nextPeersocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
         //connect
@@ -311,7 +396,7 @@ void send_stabilize(struct peer *current)
         {
             close(nextPeersocket);
             //errno = ECONNREFUSED;
-            perror("connection error");
+            perror("connection error send stabilize");
             //exit(1);
         }
         //send the message and close the socket
@@ -326,7 +411,7 @@ void *periodic_stabilize(void *arg)
     while (1)
     {
         send_stabilize(arg);
-        sleep(2);
+        sleep(1);
     }
 }
 
@@ -338,7 +423,7 @@ void *output_structure(void *arg)
     while (1)
     {
         time(&newtime);
-        if (newtime % 10 == 0)
+        if (newtime % 5 == 0)
         {
             printf("Vorgaenger:\n");
             printf("ID: %d\n", current_peer->vorganger.id);
@@ -352,20 +437,23 @@ void *output_structure(void *arg)
             printf("ID: %d\n", current_peer->nachfolger.id);
             printf("IP: %s\n", current_peer->nachfolger.add);
             printf("port: %s\n\n", current_peer->nachfolger.port);
-            sleep(5);
+            sleep(3);
         }
     }
 }
 
-void send_to_client(unsigned char *receive_header, int client_socket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length, fd_set master)
+void send_to_client(unsigned char *receive_header, int client_socket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length, int transactionId)
 {
+
     unsigned char *answer = (unsigned char *)malloc(1000);
     memcpy(answer, receive_header, HEAD);
     memcpy(answer + 6 + key_length, value, value_length);
     memcpy(answer + 6, key, key_length);
     send(client_socket, answer, HEAD + key_length + value_length, 0);
     close(client_socket);
-    FD_CLR(client_socket, &master);
+    struct transaction_socket_struct *found = find_socket(transactionId);
+    if (found != NULL)
+        delete_sockfd(found);
     free(answer);
 }
 
@@ -426,7 +514,6 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
 
     //create new socket using data obtained with getaddrinfo()
     nextPeersocket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-    int yes = 1;
     setsockopt(nextPeersocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
     //connect
@@ -434,7 +521,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
     {
         close(nextPeersocket);
         errno = ECONNREFUSED;
-        perror("connection error");
+        perror("connection error nachricht weiterleiten");
         exit(1);
     }
 
@@ -464,7 +551,7 @@ void nachricht_weiterleiten(unsigned char *nextPeerIP, unsigned char *nextPeerPo
 }
 
 void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int key_length, unsigned char *value, unsigned int value_length,
-                          int art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender, unsigned char *receive_header, fd_set master)
+                          int art, unsigned char answer_header[], unsigned char transactionId, unsigned char *ip_absender, unsigned char *port_absender, uint16_t id_absender, unsigned char *receive_header, uint16_t current_id)
 {
     memset(answer_header, 0, 1000);
     if (art == 1)
@@ -486,6 +573,8 @@ void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int ke
             {
                 memcpy(&answer_header[6], key, key_length);
                 send(client_socket, answer_header, 1000, 0);
+                close(client_socket);
+                return;
             }
         }
         else
@@ -500,9 +589,11 @@ void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int ke
             value_length = strlen(value);
             if (!isNthBitSet(receive_header[0], 0))
             {
+
                 memcpy(&answer_header[6 + key_length], value, value_length);
                 memcpy(&answer_header[6], key, key_length);
                 send(client_socket, answer_header, 1000, 0);
+                close(client_socket);
             }
         }
     }
@@ -519,6 +610,7 @@ void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int ke
         if (!isNthBitSet(receive_header[0], 0))
         {
             send(client_socket, answer_header, 1000, 0);
+            close(client_socket);
         }
     }
     if (art == 3)
@@ -535,25 +627,24 @@ void nachricht_bearbeiten(int client_socket, unsigned char *key, unsigned int ke
         if (!isNthBitSet(receive_header[0], 0))
         {
             send(client_socket, answer_header, 1000, 0);
+            close(client_socket);
         }
     }
+
     if (isNthBitSet(receive_header[0], 0))
     {
-        nachricht_weiterleiten(ip_absender, port_absender, answer_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
+        nachricht_weiterleiten(ip_absender, port_absender, answer_header, answer_header, key_length, key, value, value_length, current_id, ip_absender, port_absender);
     }
-    close(client_socket);
-
-    FD_CLR(client_socket, &master);
 }
 
-void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+void read_header_peer(unsigned char **key, unsigned char *transactionId, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
                       unsigned char **value,
                       unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
 
     *key_length = (header[2] << 8) + header[3];
     *value_length = (header[4] << 8) + header[5];
-    *transaktions_id = header[1];
+    *transactionId = header[1];
     *key = (unsigned char *)calloc(*key_length + 1, 1);
     *value = (unsigned char *)calloc(*value_length + 1, 1);
 
@@ -580,7 +671,6 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
     memcpy(*port_absender, portaddress, strlen(portaddress));
     memcpy(*key, &header[14], *key_length);
     memcpy(*value, &header[14 + *key_length], *value_length);
-
     /*
     printf("Id absender : %u\n", *id_absender);
     printf("Port absender %s\n", *port_absender);
@@ -595,14 +685,14 @@ void read_header_peer(unsigned char **key, unsigned char *transaktions_id, uint1
     */
 }
 
-void read_header_client(struct peer *current_peer, unsigned char **key, unsigned char *transaktions_id, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
+void read_header_client(struct peer *current_peer, unsigned char **key, unsigned char *transactionId, uint16_t *id_absender, unsigned char **ip_absender, unsigned char **port_absender,
                         unsigned char **value,
                         unsigned char *header, unsigned int *key_length, unsigned int *value_length)
 {
 
     *key_length = (header[2] << 8) + header[3];
     *value_length = (header[4] << 8) + header[5];
-    *transaktions_id = header[1];
+    *transactionId = header[1];
     *key = (unsigned char *)calloc(*key_length + 1, 1);
     *value = (unsigned char *)calloc(*value_length + 1, 1);
     *ip_absender = (unsigned char *)malloc(strlen(current_peer->current.add) + 1);
@@ -630,17 +720,34 @@ void read_header_client(struct peer *current_peer, unsigned char **key, unsigned
     */
 }
 
+void updateFingertable(int idVonN, int hash, uint16_t current_id)
+{
+    for (int i = 0; i < 16; i++)
+    {
+        int start = formula(current_id, i);
+        if (start >= hash && start <= idVonN)
+        {
+            add_finger(start, idVonN);
+        }
+        else
+        {
+            struct finger_table_struct *tempStruct = find_finger(start);
+            if (tempStruct != NULL)
+            {
+                int eintrag = tempStruct->nodeID;
+                if (start > idVonN && eintrag < idVonN)
+                {
+                    add_finger(start, idVonN);
+                }
+            }
+        }
+    }
+}
+
 //------------------- Main
 int main(int argc, unsigned char *argv[])
 {
     struct peer *current_peer = calloc(1, sizeof(struct peer));
-    fd_set master;     // master file descriptor list
-    fd_set read_fds;   // temp file descriptor list for select()
-    int fdmax;         // maximum file descriptor number
-    int client_socket; //sockfd for new connections
-
-    FD_ZERO(&master); // clear the master and temp sets
-    FD_ZERO(&read_fds);
     //create new ring
     if (argc == 3 || argc == 4)
     {
@@ -686,7 +793,6 @@ int main(int argc, unsigned char *argv[])
 
     //create new socket using data obtained with getaddrinfo()
     int server_socket = socket(results->ai_family, results->ai_socktype, results->ai_protocol);
-    int yes = 1;
     setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
     //bind the new socket to a port
@@ -703,10 +809,6 @@ int main(int argc, unsigned char *argv[])
         exit(1);
     }
 
-    // add the listener to the master set
-    FD_SET(server_socket, &master);
-    fdmax = server_socket;
-
     pthread_t thread_id[1];
     //create thread for sending stabilizing
     pthread_create(&thread_id[0], NULL, &periodic_stabilize, current_peer);
@@ -715,177 +817,179 @@ int main(int argc, unsigned char *argv[])
         send_join(current_peer);
     //create thread for printing the structure
     pthread_create(&thread_id[1], NULL, &output_structure, current_peer);
+    uint16_t current_id = current_peer->current.id;
+    //create "blank" finger tables
+
+    if (current_peer->isBase == 0)
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            add_finger(formula(current_id, i), current_peer->nachfolger.id);
+        }
+    }
 
     while (1)
     {
         struct sockaddr_storage client_info;
         socklen_t client_info_length = sizeof(client_info);
+        int client_socket = accept(server_socket, (struct sockaddr *)&client_info, &client_info_length);
+        setsockopt(client_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+        if (client_socket == -1)
+        {
+            perror("Error while accepting the connection");
+            exit(1);
+        }
+
         unsigned char receive_header[1000];
         unsigned char answer_header[1000];
+
         memset(receive_header, 0, 1000);
         memset(answer_header, 0, 1000);
 
-        read_fds = master; // copy it
-        struct timeval tv = {1, 0};
-        if (select(fdmax + 1, &read_fds, &read_fds, NULL, &tv) == -1)
+        if (recv(client_socket, &receive_header, 1000, 0) == -1)
         {
-            perror("select");
-            exit(4);
+            perror("Error receiving");
+            exit(1);
         }
 
-        // run through the existing connections looking for data to read
-        for (int i = 0; i <= fdmax; i++)
+        int internal = isNthBitSet(receive_header[0], 0);
+        int isJoin = isNthBitSet(receive_header[0], 1);
+        int isNotify = isNthBitSet(receive_header[0], 2);
+        int isStabilize = isNthBitSet(receive_header[0], 3);
+        int art = 0;
+        int artIsNull = 0;
+        int isGet = isNthBitSet(receive_header[0], 5);
+        int isSet = isNthBitSet(receive_header[0], 6);
+        int isDelete = isNthBitSet(receive_header[0], 7);
+
+        uint16_t id_absender;
+        unsigned char *port_absender;
+        unsigned char *ip_absender;
+        unsigned int key_length;
+        unsigned int value_length;
+        unsigned char *key;
+        unsigned char transactionId;
+        unsigned char *value;
+
+        if (isGet)
         {
-            if (FD_ISSET(i, &read_fds)) // we got one!!
+            artIsNull = 1;
+            art = 1;
+        }
+        if (isSet)
+        {
+            pthread_cancel(thread_id[0]);
+            artIsNull = 1;
+            art = 2;
+        }
+        if (isDelete)
+        {
+            artIsNull = 1;
+            art = 3;
+        }
+        if (isJoin)
+        {
+            //printf("Joining \n");
+            //copy ID,IP, and port
+            memcpy(&id_absender, receive_header + 1, 2);
+            struct in_addr in;
+            int32_t ip_intrep;
+            memcpy(&ip_intrep, receive_header + 3, 4);
+            in.s_addr = ip_intrep;
+            ip_absender = inet_ntoa(in);
+            uint16_t port_intrep;
+            memcpy(&port_intrep, receive_header + 7, 2);
+            //printf("%d \n", port_intrep);
+            port_absender = (unsigned char *)malloc(5);
+            sprintf(port_absender, "%d", port_intrep);
+            //printf("%s \n", portaddress);
+
+            //if there is only one peer in the ring, connect it with the joining node "in both direction" - nachfolger=vorganger
+            if (current_peer->isBase == 1)
             {
-                if (i == server_socket)
+                join(current_peer, id_absender, ip_absender, port_absender);
+                current_peer->nachfolger.id = id_absender;
+                current_peer->nachfolger.add = calloc(strlen(ip_absender) + 1, 1);
+                strcpy(current_peer->nachfolger.add, ip_absender);
+                current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
+                strcpy(current_peer->nachfolger.port, port_absender);
+                current_peer->isBase = 0;
+
+                //update the finger table for first peer
+                if (current_peer->isBase)
                 {
-                    client_socket = accept(server_socket, (struct sockaddr *)&client_info, &client_info_length);
-                    if (client_socket == -1)
+                    for (int i = 0; i < 16; i++)
                     {
-                        perror("Error while accepting the connection");
-                        exit(1);
+                        add_finger(formula(current_id, i), current_peer->nachfolger.id);
                     }
-                    else
-                    {
-                        FD_SET(client_socket, &master); //add to master set
-                        if (client_socket > fdmax)      //keep track of the max
-                            fdmax = client_socket;
-                    }
+                }
+            }
+            //logic for finding the correct spot in the ring
+            else if (current_peer->current.id < current_peer->vorganger.id)
+            {
+                if (id_absender > current_peer->current.id && id_absender > current_peer->vorganger.id)
+                {
+                    join(current_peer, id_absender, ip_absender, port_absender);
+                }
+                else if (id_absender <= current_peer->current.id && id_absender < current_peer->vorganger.id)
+                {
+                    join(current_peer, id_absender, ip_absender, port_absender);
                 }
                 else
                 {
-                    if (recv(client_socket, &receive_header, 1000, 0) == -1)
-                    {
-                        perror("Error receiving");
-                        exit(1);
-                    }
+                    printf("Forwarding join request from node nr %d to node nr %d \n", current_peer->current.id, current_peer->nachfolger.id);
+                    join_weiterleiten(receive_header, current_peer->nachfolger.add, current_peer->nachfolger.port);
+                }
+            }
+            else
+            {
+                if (id_absender <= current_peer->current.id && id_absender > current_peer->vorganger.id)
+                {
+                    join(current_peer, id_absender, ip_absender, port_absender);
+                }
+                else
+                {
 
-                    int internal = isNthBitSet(receive_header[0], 0);
-                    int isJoin = isNthBitSet(receive_header[0], 1);
-                    int isNotify = isNthBitSet(receive_header[0], 2);
-                    int isStabilize = isNthBitSet(receive_header[0], 3);
-                    int art = 0;
-                    int artIsNull = 0;
-                    int isGet = isNthBitSet(receive_header[0], 5);
-                    int isSet = isNthBitSet(receive_header[0], 6);
-                    int isDelete = isNthBitSet(receive_header[0], 7);
+                    printf("Forwarding join request from node nr %d to node nr %d \n", current_peer->current.id, current_peer->nachfolger.id);
+                    join_weiterleiten(receive_header, current_peer->nachfolger.add, current_peer->nachfolger.port);
+                }
+            }
+            close(client_socket);
+            continue;
+        }
 
-                    uint16_t id_absender;
-                    unsigned char *port_absender;
-                    unsigned char *ip_absender;
-                    unsigned int key_length;
-                    unsigned int value_length;
-                    unsigned char *key;
-                    unsigned char transaktions_id;
-                    unsigned char *value;
+        if (isNotify)
+        {
+            //printf("Notifying\n");
+            //copy ID
+            memcpy(&id_absender, receive_header + 1, 2);
+            //copy IP
+            struct in_addr in;
+            int32_t ip_intrep;
+            memcpy(&ip_intrep, receive_header + 3, 4);
+            in.s_addr = ip_intrep;
+            ip_absender = inet_ntoa(in);
+            //copy port
+            uint16_t port_intrep;
+            memcpy(&port_intrep, receive_header + 7, 2);
+            //printf("%d \n", port_intrep);
+            port_absender = (unsigned char *)malloc(5);
+            sprintf(port_absender, "%d", port_intrep);
+            //printf("%s \n", portaddress);
 
-                    if (isGet)
-                    {
-                        artIsNull = 1;
-                        art = 1;
-                    }
-                    if (isSet)
-                    {
-                        artIsNull = 1;
-                        art = 2;
-                    }
-                    if (isDelete)
-                    {
-                        artIsNull = 1;
-                        art = 3;
-                    }
-                    if (isJoin)
-                    {
-                        //printf("Joining \n");
-                        //copy ID,IP, and port
-                        memcpy(&id_absender, receive_header + 1, 2);
-                        struct in_addr in;
-                        int32_t ip_intrep;
-                        memcpy(&ip_intrep, receive_header + 3, 4);
-                        in.s_addr = ip_intrep;
-                        ip_absender = inet_ntoa(in);
-                        uint16_t port_intrep;
-                        memcpy(&port_intrep, receive_header + 7, 2);
-                        //printf("%d \n", port_intrep);
-                        port_absender = (unsigned char *)malloc(5);
-                        sprintf(port_absender, "%d", port_intrep);
-                        //printf("%s \n", portaddress);
-
-                        //if there is only one peer in the ring, connect it with the joining node "in both direction" - nachfolger=vorganger
-                        if (current_peer->isBase == 1)
-                        {
-                            join(current_peer, id_absender, ip_absender, port_absender);
-                            current_peer->nachfolger.id = id_absender;
-                            current_peer->nachfolger.add = calloc(strlen(ip_absender) + 1, 1);
-                            strcpy(current_peer->nachfolger.add, ip_absender);
-                            current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
-                            strcpy(current_peer->nachfolger.port, port_absender);
-                            current_peer->isBase = 0;
-                        }
-                        //logic for finding the correct spot in the ring
-                        else if (current_peer->current.id < current_peer->vorganger.id)
-                        {
-                            if (id_absender > current_peer->current.id && id_absender > current_peer->vorganger.id)
-                            {
-                                join(current_peer, id_absender, ip_absender, port_absender);
-                            }
-                            else if (id_absender <= current_peer->current.id && id_absender < current_peer->vorganger.id)
-                            {
-                                join(current_peer, id_absender, ip_absender, port_absender);
-                            }
-                            else
-                            {
-                                printf("Forwarding join request from node nr %d to node nr %d \n", current_peer->current.id, current_peer->nachfolger.id);
-                                join_weiterleiten(receive_header, current_peer->nachfolger.add, current_peer->nachfolger.port);
-                            }
-                        }
-                        else
-                        {
-                            if (id_absender <= current_peer->current.id && id_absender > current_peer->vorganger.id)
-                            {
-                                join(current_peer, id_absender, ip_absender, port_absender);
-                            }
-                            else
-                            {
-
-                                printf("Forwarding join request from node nr %d to node nr %d \n", current_peer->current.id, current_peer->nachfolger.id);
-                                join_weiterleiten(receive_header, current_peer->nachfolger.add, current_peer->nachfolger.port);
-                            }
-                        }
-                    }
-
-                    else if (isNotify)
-                    {
-                        //printf("Notifying\n");
-                        //copy ID
-                        memcpy(&id_absender, receive_header + 1, 2);
-                        //copy IP
-                        struct in_addr in;
-                        int32_t ip_intrep;
-                        memcpy(&ip_intrep, receive_header + 3, 4);
-                        in.s_addr = ip_intrep;
-                        ip_absender = inet_ntoa(in);
-                        //copy port
-                        uint16_t port_intrep;
-                        memcpy(&port_intrep, receive_header + 7, 2);
-                        //printf("%d \n", port_intrep);
-                        port_absender = (unsigned char *)malloc(5);
-                        sprintf(port_absender, "%d", port_intrep);
-                        //printf("%s \n", portaddress);
-
-                        //copy the ID of the notifier to nachfolger - needed for |peers|=2
-                        //else the peer who joins doesn't store the ID of nachfolger, since it's by default initialized with 0
-                        memcpy(&current_peer->nachfolger.id, receive_header + 9, 2);
-                        if (current_peer->current.id != id_absender)
-                        {
-                            //printf("\n current id: %d, id received from notify: %d", current_peer->current.id, id_absender);
-                            current_peer->nachfolger.id = id_absender;
-                            current_peer->nachfolger.add = calloc(strlen(ip_absender) + 1, 1);
-                            strcpy(current_peer->nachfolger.add, ip_absender);
-                            current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
-                            strcpy(current_peer->nachfolger.port, port_absender);
-                            /*printf("Nachfolger:\n");
+            //copy the ID of the notifier to nachfolger - needed for |peers|=2
+            //else the peer who joins doesn't store the ID of nachfolger, since it's by default initialized with 0
+            memcpy(&current_peer->nachfolger.id, receive_header + 9, 2);
+            if (current_peer->current.id != id_absender)
+            {
+                //printf("\n current id: %d, id received from notify: %d", current_peer->current.id, id_absender);
+                current_peer->nachfolger.id = id_absender;
+                current_peer->nachfolger.add = calloc(strlen(ip_absender) + 1, 1);
+                strcpy(current_peer->nachfolger.add, ip_absender);
+                current_peer->nachfolger.port = calloc(strlen(port_absender) + 1, 1);
+                strcpy(current_peer->nachfolger.port, port_absender);
+                /*printf("Nachfolger:\n");
                 printf("ID aktualisiert: %d\n", current_peer->nachfolger.id);
                 printf("IP aktualisiert : %s\n", current_peer->nachfolger.add);
                 printf("port aktualisiert: %s\n", current_peer->nachfolger.port);            }
@@ -894,123 +998,125 @@ int main(int argc, unsigned char *argv[])
                     printf("Successor not changed\n");
                 }
                 */
-                        }
-                        close(client_socket);
-                        FD_CLR(client_socket, &master);
-                    }
+            }
+            close(client_socket);
+            continue;
+        }
 
-                    else if (isStabilize)
-                    {
-                        //printf("Stabilizing\n");
-                        //copy ID
-                        memcpy(&id_absender, receive_header + 1, 2);
-                        //copy IP
-                        struct in_addr in;
-                        int32_t ip_intrep;
-                        memcpy(&ip_intrep, receive_header + 3, 4);
-                        in.s_addr = ip_intrep;
-                        ip_absender = inet_ntoa(in);
-                        //copy port
-                        uint16_t port_intrep;
-                        memcpy(&port_intrep, receive_header + 7, 2);
-                        //printf("%d \n", port_intrep);
-                        port_absender = (unsigned char *)malloc(5);
-                        sprintf(port_absender, "%d", port_intrep);
-                        //printf("%s \n", portaddress);
-                        /*printf("Vorgaenger:\n");
+        if (isStabilize)
+        {
+            //printf("Stabilizing\n");
+            //copy ID
+            memcpy(&id_absender, receive_header + 1, 2);
+            //copy IP
+            struct in_addr in;
+            int32_t ip_intrep;
+            memcpy(&ip_intrep, receive_header + 3, 4);
+            in.s_addr = ip_intrep;
+            ip_absender = inet_ntoa(in);
+            //copy port
+            uint16_t port_intrep;
+            memcpy(&port_intrep, receive_header + 7, 2);
+            //printf("%d \n", port_intrep);
+            port_absender = (unsigned char *)malloc(5);
+            sprintf(port_absender, "%d", port_intrep);
+            //printf("%s \n", portaddress);
+            /*printf("Vorgaenger:\n");
             printf("ID: %d\n", id_absender);
             printf("IP: %s\n", ip_absender);
             printf("port: %s\n", port_absender);*/
-                        //copy the ID,IP and port of the peer who sent stabilize to the receiver of the message - needed for |peers|=2
-                        //else the peer who just joined the ring can't send notify to anyone, since he doesn't have a vorganger
-                        if (current_peer->vorganger.add == NULL)
-                        {
-                            current_peer->vorganger.id = id_absender;
-                            current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
-                            strcpy(current_peer->vorganger.add, ip_absender);
-                            current_peer->vorganger.port = calloc(strlen(port_absender) + 1, 1);
-                            strcpy(current_peer->vorganger.port, port_absender);
-                        }
-                        //send notify to the peer who sent stabilize
-                        send_notify(ip_absender, port_absender, current_peer);
-                        close(client_socket);
-                        FD_CLR(client_socket, &master);
-                    }
+            //copy the ID,IP and port of the peer who sent stabilize to the receiver of the message - needed for |peers|=2
+            //else the peer who just joined the ring can't send notify to anyone, since he doesn't have a vorganger
+            if (current_peer->vorganger.add == NULL)
+            {
+                current_peer->vorganger.id = id_absender;
+                current_peer->vorganger.add = calloc(strlen(ip_absender) + 1, 1);
+                strcpy(current_peer->vorganger.add, ip_absender);
+                current_peer->vorganger.port = calloc(strlen(port_absender) + 1, 1);
+                strcpy(current_peer->vorganger.port, port_absender);
+            }
+            //send notify to the peer who sent stabilize
+            send_notify(ip_absender, port_absender, current_peer);
+            close(client_socket);
+            continue;
+        }
 
-                    else if (artIsNull)
-                    {
-                        if (internal)
-                        {
-                            read_header_peer(&key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
-                            close(client_socket);
-                            FD_CLR(client_socket, &master);
-                        }
-                        else
-                        {
-                            csocket = client_socket;
-                            read_header_client(current_peer, &key, &transaktions_id, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
-                        }
-                        nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
+        if (artIsNull)
+        {
+            if (internal)
+            {
+                read_header_peer(&key, &transactionId, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+            }
+            else
+            {
+                read_header_client(current_peer, &key, &transactionId, &id_absender, &ip_absender, &port_absender, &value, receive_header, &key_length, &value_length);
+                add_sockfd(transactionId, client_socket);
+                printf("%d, %d \n", transactionId, client_socket);
+            }
+            nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
-                        // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
-                        // mod % 2^16, da es der wertebereich ist
+            // //Hash der Key und gucke ob das zu dem aktuellen peer gehört
+            // mod % 2^16, da es der wertebereich ist
 
-                        unsigned char *nextPeerIP = current_peer->nachfolger.add;
-                        unsigned char *nextPeerPort = current_peer->nachfolger.port;
-                        unsigned int hash_value = (hash(key, (key_length))) % 65536;
+            unsigned char *nextPeerIP = current_peer->nachfolger.add;
+            unsigned char *nextPeerPort = current_peer->nachfolger.port;
+            unsigned int hash_value = (hash(key, (key_length))) % 65536;
 
-                        //Prüfen ob den aktuellen peer zuständig für die anfrage ist
-                        //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
-                        //Wenn nicht setzte das intern bit zu 1 und leite dass zu nachfolger weiter
+            //Prüfen ob den aktuellen peer zuständig für die anfrage ist
+            //Wenn ja, bearbeite die anfrage (also führe set, get, delete in interne hastable aus)
+            //Wenn nicht setzte das intern bit zu 1 und leite dass zu nachfolger weiter
 
-                        // 2 Fälle
-                        // Fall 1 : hash liegt zwischen den letzen und dem ersten Knoten
-                        // Bsp letzte knoten 220 und ersten 10
-                        // Fall 2 : hash liegt zwischen zwei normalen knoten.
+            // 2 Fälle
+            // Fall 1 : hash liegt zwischen den letzen und dem ersten Knoten
+            // Bsp letzte knoten 220 und ersten 10
+            // Fall 2 : hash liegt zwischen zwei normalen knoten.
 
-                        //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
+            //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
 
-                        if (isNthBitSet(receive_header[0], 4))
-                        {
-                            send_to_client(receive_header, client_socket, key, key_length, value, value_length, master);
-                        }
-                        else if (current_peer->current.id < current_peer->vorganger.id)
-                        {
-                            //hash > last
-                            if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
-                            {
-                                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header, master);
-                            }
-                            // hash € {0, current_peer_id}
-                            else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
-                            {
-                                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header, master);
-                            }
-                            else
-                            {
-                                //Nicht zuständig, dann weiter leiten
-                                nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
-                            }
-                        }
-                        else
-                        {
-                            //Fall 2: also normalen Fall
-                            if (hash_value <= current_peer->current.id && hash_value > current_peer->vorganger.id)
-                            {
-                                //Dann current ist dafür zuständig
-                                nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transaktions_id, ip_absender, port_absender, id_absender, receive_header, master);
-                            }
-                            else
-                            {
-                                nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
-                            }
-                        }
-                    }
+            if (isNthBitSet(receive_header[0], 4))
+            {
+                struct transaction_socket_struct *found = find_socket(transactionId);
+                int csocket = found->sockfd;
+                // struct transaction_hash_struct *found_hash = find_hash(transactionId);
+                // int new_hash = found_hash->hash;
+                updateFingertable(id_absender, hash_value, current_id);
+                send_to_client(receive_header, csocket, key, key_length, value, value_length, transactionId);
+            }
+            else if (current_peer->current.id < current_peer->vorganger.id)
+            {
+                //hash > last
+                if (hash_value > current_peer->current.id && hash_value > current_peer->vorganger.id)
+                {
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                }
+                // hash € {0, current_peer_id}
+                else if (hash_value <= current_peer->current.id && hash_value < current_peer->vorganger.id)
+                {
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                }
+                else
+                {
+                    //Nicht zuständig, dann weiter leiten
+                    nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
+                }
+            }
+            else
+            {
+                //Fall 2: also normalen Fall
+                if (hash_value <= current_peer->current.id && hash_value > current_peer->vorganger.id)
+                {
+                    //Dann current ist dafür zuständig
+                    nachricht_bearbeiten(client_socket, key, key_length, value, value_length, art, answer_header, transactionId, ip_absender, port_absender, id_absender, receive_header, current_id);
+                }
+                else
+                {
+                    nachricht_weiterleiten(nextPeerIP, nextPeerPort, receive_header, answer_header, key_length, key, value, value_length, id_absender, ip_absender, port_absender);
                 }
             }
         }
+        if (internal == 1)
+            close(client_socket);
     }
-
     free(current_peer);
     close(server_socket);
     freeaddrinfo(results);
