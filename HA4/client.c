@@ -13,17 +13,18 @@ int sockfd = 0;
 int set(char *key, int key_length, char **value, int value_length)
 {
 
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(sockfd, &rfds);
 
-    struct timeval tv;
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
 
     int ready;
     do
     {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(sockfd, &rfds);
+
+        struct timeval tv;
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
         unsigned char answer_header[key_length + value_length + 6];
         memset(answer_header, 0, key_length + value_length + 6);
         answer_header[0] = 0b00000010;
@@ -53,9 +54,6 @@ int set(char *key, int key_length, char **value, int value_length)
         return -1; // error
     if (ready == 1)
         return 1; // acknowledged
-
-    return 0;
-}
 
 int get(char *key, int key_length, char **value)
 {

@@ -81,25 +81,6 @@ struct finger_table_struct *find_finger(int index) {
     return s;
 }
 
-struct id_add_port get_best_finger(int hashK, int current_id) {
-    struct id_add_port bestFinger = malloc(sizeof(struct id_add_port));
-
-    for (int i = 0; i < 16; i++) {
-        int start = formula(current_id, i);
-        struct finger_table_struct *tmp = find_finger(start);
-        if (start <= hashK) { // TODO start oder tmp->node->id??
-//            copy information into bestFinger
-            bestFinger = tmp->node;
-            bestFinger->id = tmp->node->id;
-            bestFinger->port = malloc(strlen(tmp->node->port) + 1);
-            bestFinger->add = malloc(strlen(tmp->node->add) + 1);
-            strcpy(bestFinger->add, tmp->node->add);
-            strcpy(bestFinger->port, tmp->node->port);
-        }
-    }
-    return bestFinger;
-}
-
 void add_finger(int index, struct id_add_port *node) {
     struct finger_table_struct *s = NULL;
     s = (struct finger_table_struct *) malloc(sizeof *s);
@@ -704,6 +685,27 @@ void updateFingertable(struct id_add_port *peer_n, int hash, uint16_t current_id
         }
     }
 }
+
+struct id_add_port *get_best_finger(int hashK, int current_id) {
+    struct id_add_port *bestFinger = malloc(sizeof(struct id_add_port));
+
+    for (int i = 0; i < 16; i++) {
+        int start = formula(current_id, i);
+        struct finger_table_struct *tmp = find_finger(start);
+        if (start <= hashK) { // TODO start oder tmp->node->id??
+//            copy information into bestFinger
+            bestFinger = tmp->node;
+            bestFinger->id = tmp->node->id;
+            bestFinger->port = malloc(strlen(tmp->node->port) + 1);
+            bestFinger->add = malloc(strlen(tmp->node->add) + 1);
+            strcpy(bestFinger->add, tmp->node->add);
+            strcpy(bestFinger->port, tmp->node->port);
+        }
+    }
+    return bestFinger;
+}
+
+
 
 //------------------- Main
 int main(int argc, unsigned char *argv[]) {
