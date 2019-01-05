@@ -828,7 +828,7 @@ int main(int argc, unsigned char *argv[])
 
             //copy the ID of the notifier to nachfolger - needed for |peers|=2
             //else the peer who joins doesn't store the ID of nachfolger, since it's by default initialized with 0
-            memcpy(&current_peer->nachfolger.id, receive_header + 9, 2);
+            //memcpy(&current_peer->nachfolger.id, receive_header + 9, 2);
             if (current_peer->current.id != id_absender)
             {
                 //printf("\n current id: %d, id received from notify: %d", current_peer->current.id, id_absender);
