@@ -785,11 +785,13 @@ int main(int argc, unsigned char *argv[])
     //create new ring
     if (argc == 3 || argc == 4)
     {
+        printf("create new ring\n");
         //initialisiere structs
         current_peer->current = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[1]) + 1), .port = malloc(strlen(argv[2]) + 1)};
         current_peer->isBase = 1;
-        strcpy(current_peer->current.add, argv[1]);
-        strcpy(current_peer->current.port, argv[2]);
+        str_to_uint16(argv[3], &current_peer->current.id);
+        sprintf(current_peer->current.add, "%.9s", argv[1]);
+        sprintf(current_peer->current.port, "%.5s", argv[2]);
         if (argc == 4)
             str_to_uint16(argv[3], &current_peer->current.id);
     }
@@ -801,11 +803,12 @@ int main(int argc, unsigned char *argv[])
         current_peer->nachfolger = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[4]) + 1), .port = malloc(strlen(argv[5]) + 1)};
         current_peer->isBase = 0;
         //copy id, addresses and ports
-        strcpy(current_peer->current.add, argv[1]);
-        strcpy(current_peer->current.port, argv[2]);
         str_to_uint16(argv[3], &current_peer->current.id);
-        strcpy(current_peer->nachfolger.add, argv[4]);
-        strcpy(current_peer->nachfolger.port, argv[5]);
+        sprintf(current_peer->current.add, "%.9s", argv[1]);
+        sprintf(current_peer->current.port, "%.5s", argv[2]);
+
+        sprintf(current_peer->nachfolger.add, "%.9s", argv[4]);
+        sprintf(current_peer->nachfolger.port, "%.5s", argv[5]);
     }
 
     //declare needed structures
@@ -819,6 +822,7 @@ int main(int argc, unsigned char *argv[])
     server_info_config.ai_socktype = SOCK_STREAM;
 
     //get host information and load it into *results
+    printf("%s %s", current_peer->current.add, current_peer->current.port);
     if (getaddrinfo(current_peer->current.add, current_peer->current.port, &server_info_config, &results) != 0)
     {
         perror("Error in getAddinfo main");
@@ -929,6 +933,11 @@ int main(int argc, unsigned char *argv[])
                     }
                 }
                 fingertableflag = 0;
+                for (int i = 0; i < 16; i++)
+                {
+                    struct finger_table_struct *tmp = find_finger(formula(current_id, i));
+                    printf("%u \n", tmp->node->id);
+                }
             }
             pthread_cancel(thread_id[0]);
             artIsNull = 1;
