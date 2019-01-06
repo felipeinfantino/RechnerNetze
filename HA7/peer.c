@@ -94,7 +94,7 @@ struct finger_table_struct *find_finger(int index)
 
 void add_finger(int index, struct id_add_port *node)
 {
-    printf("Node ID add: %u", node->id);
+    //printf("Node ID add: %u", node->id);
     struct finger_table_struct *s = NULL;
     s = (struct finger_table_struct *)malloc(sizeof *s);
     s->index = index;
@@ -218,7 +218,7 @@ void send_join(struct peer *toJoin)
     //copy IP
     struct in_addr in;
     in.s_addr = 0;
-    char *ip = malloc(16);
+    unsigned char *ip = malloc(16);
     memcpy(ip, toJoin->current.add, strlen(toJoin->current.add));
     inet_aton(ip, &in);
     uint32_t IP = in.s_addr;
@@ -279,7 +279,7 @@ void send_notify(unsigned char *ip_absender, unsigned char *port_absender, struc
         //copy IP
         struct in_addr in;
         in.s_addr = 0;
-        char *ip = malloc(16);
+        unsigned char *ip = malloc(16);
         memcpy(ip, current->vorganger.add, strlen(current->vorganger.add));
         inet_aton(ip, &in);
         uint32_t IP = in.s_addr;
@@ -356,7 +356,7 @@ void send_stabilize(struct peer *current)
         //copy IP
         struct in_addr in;
         in.s_addr = 0;
-        char *ip = malloc(16);
+        unsigned char *ip = malloc(16);
         memcpy(ip, current->current.add, strlen(current->current.add));
         inet_aton(ip, &in);
         uint32_t IP = in.s_addr;
@@ -407,11 +407,11 @@ void send_stabilize(struct peer *current)
 
 void *periodic_stabilize(void *arg)
 {
-    //send stabilize every 1 second
+    //send stabilize every 2 seconds
     while (1)
     {
         send_stabilize(arg);
-        sleep(1);
+        sleep(2);
     }
 }
 
@@ -437,7 +437,7 @@ void *output_structure(void *arg)
             printf("ID: %d\n", current_peer->nachfolger.id);
             printf("IP: %s\n", current_peer->nachfolger.add);
             printf("port: %s\n\n", current_peer->nachfolger.port);
-            sleep(3);
+            sleep(10);
         }
     }
 }
@@ -739,7 +739,8 @@ void updateFingertable(struct id_add_port *peer_n, int hash, uint16_t current_id
         int start = formula(current_id, i);
         if (start >= hash && start <= peer_n->id)
         {
-            add_finger(start, peer_n);
+            if (peer_n->id = current_id)
+                add_finger(start, peer_n);
         }
         else
         {
@@ -750,7 +751,8 @@ void updateFingertable(struct id_add_port *peer_n, int hash, uint16_t current_id
                 int eintrag = tempStruct->node->id;
                 if (start > peer_n->id && eintrag < peer_n->id)
                 {
-                    add_finger(start, peer_n);
+                    if (peer_n->id = current_id)
+                        add_finger(start, peer_n);
                 }
             }
         }
@@ -789,7 +791,6 @@ int main(int argc, unsigned char *argv[])
         //initialisiere structs
         current_peer->current = (struct id_add_port){.id = 0, .add = malloc(strlen(argv[1]) + 1), .port = malloc(strlen(argv[2]) + 1)};
         current_peer->isBase = 1;
-        str_to_uint16(argv[3], &current_peer->current.id);
         sprintf(current_peer->current.add, "%.9s", argv[1]);
         sprintf(current_peer->current.port, "%.5s", argv[2]);
         if (argc == 4)
@@ -856,14 +857,14 @@ int main(int argc, unsigned char *argv[])
     //create thread for printing the structure
     pthread_create(&thread_id[1], NULL, &output_structure, current_peer);
     uint16_t current_id = current_peer->current.id;
-    char *current_ip = (unsigned char *)malloc(strlen(current_peer->current.add) + 1);
-    char *current_port = (unsigned char *)malloc(strlen(current_peer->current.port) + 1);
+    unsigned char *current_ip = (unsigned char *)malloc(strlen(current_peer->current.add) + 1);
+    unsigned char *current_port = (unsigned char *)malloc(strlen(current_peer->current.port) + 1);
     strcpy(current_port, current_peer->current.port);
     strcpy(current_ip, current_peer->current.add);
 
     //create "blank" finger tables
 
-    if (current_peer->isBase == 0)
+    /*if (current_peer->isBase == 0)
     {
         for (int i = 0; i < 16; i++)
         {
@@ -875,7 +876,7 @@ int main(int argc, unsigned char *argv[])
             printf("ID %u \n", tmp->node->id);
         }
     }
-
+*/
     while (1)
     {
         struct sockaddr_storage client_info;
@@ -930,16 +931,12 @@ int main(int argc, unsigned char *argv[])
             if (fingertableflag == 1)
 
             {
-                if (!current_peer->isBase)
+                for (int i = 0; i < 16; i++)
                 {
-                    for (int i = 0; i < 16; i++)
-                    {
-                        add_finger(formula(current_id, i), &current_peer->nachfolger);
-                    }
+                    add_finger(formula(current_id, i), &current_peer->nachfolger);
                 }
-                fingertableflag = 0;
             }
-            pthread_cancel(thread_id[0]);
+            fingertableflag = 0;
             artIsNull = 1;
             art = 2;
         }
@@ -977,13 +974,6 @@ int main(int argc, unsigned char *argv[])
                 current_peer->isBase = 0;
 
                 //update the finger table for first peer
-                if (current_peer->isBase)
-                {
-                    for (int i = 0; i < 16; i++)
-                    {
-                        add_finger(formula(current_id, i), &current_peer->nachfolger);
-                    }
-                }
             }
             //logic for finding the correct spot in the ring
             else if (current_peer->current.id < current_peer->vorganger.id)
@@ -1115,7 +1105,7 @@ int main(int argc, unsigned char *argv[])
                 read_header_client(current_peer, &key, &transactionId, &id_absender, &ip_absender, &port_absender,
                                    &value, receive_header, &key_length, &value_length);
                 add_sockfd(transactionId, client_socket);
-                printf("%d, %d \n", transactionId, client_socket);
+                //printf("%d, %d \n", transactionId, client_socket);
             }
             nachricht_ausgeben(current_peer, internal, art, id_absender, ip_absender, port_absender);
 
@@ -1138,8 +1128,8 @@ int main(int argc, unsigned char *argv[])
             //Fall 1 (ersten Knoten): wir gucken ob der current peer ein kleineres ID hat als vorgänger, wenn ja es ist Fall 1 ansonsten Fall 2
             //look for the most suitable node in the finger_table
 
-            char *next_finger_ip;
-            char *next_finger_port;
+            unsigned char *next_finger_ip;
+            unsigned char *next_finger_port;
             struct id_add_port *next_finger = get_best_finger(hash_value, current_id);
             if (next_finger->add != NULL)
             {

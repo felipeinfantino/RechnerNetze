@@ -1,0 +1,2 @@
+557,12 sec = measurement for 10 peers, no finger table
+Sadly our finger_table doesn't work correctly.
