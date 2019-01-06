@@ -94,6 +94,7 @@ struct finger_table_struct *find_finger(int index)
 
 void add_finger(int index, struct id_add_port *node)
 {
+    printf("Node ID add: %u", node->id);
     struct finger_table_struct *s = NULL;
     s = (struct finger_table_struct *)malloc(sizeof *s);
     s->index = index;
@@ -767,7 +768,6 @@ struct id_add_port *get_best_finger(int hashK, int current_id)
         if (start <= hashK)
         { // TODO start oder tmp->node->id??
             //            copy information into bestFinger
-            bestFinger = tmp->node;
             bestFinger->id = tmp->node->id;
             bestFinger->port = malloc(strlen(tmp->node->port) + 1);
             bestFinger->add = malloc(strlen(tmp->node->add) + 1);
@@ -869,6 +869,11 @@ int main(int argc, unsigned char *argv[])
         {
             add_finger(formula(current_id, i), &current_peer->nachfolger);
         }
+        for (int i = 0; i < 16; i++)
+        {
+            struct finger_table_struct *tmp = find_finger(formula(current_id, i));
+            printf("ID %u \n", tmp->node->id);
+        }
     }
 
     while (1)
@@ -933,11 +938,6 @@ int main(int argc, unsigned char *argv[])
                     }
                 }
                 fingertableflag = 0;
-                for (int i = 0; i < 16; i++)
-                {
-                    struct finger_table_struct *tmp = find_finger(formula(current_id, i));
-                    printf("%u \n", tmp->node->id);
-                }
             }
             pthread_cancel(thread_id[0]);
             artIsNull = 1;
