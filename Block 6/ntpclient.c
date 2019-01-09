@@ -6,6 +6,12 @@
 #include <unistd.h>
 #include <time.h>
 
+void read_response(){
+
+}
+
+
+
 int main(int argc, char *argv[]) {
 
     if(argc != 3){ //TODO
