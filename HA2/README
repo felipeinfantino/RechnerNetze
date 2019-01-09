@@ -1,1 +1,0 @@
-Der UDP client braucht in der Regel doppel zu wenig wie der TCP client, das liegt daran, dass da kein Handshake gemacht wird, dann brauchen die Daten nur hin und zurück und bei TCP brauchen erstmal hin und zurück für die Verbindung und dann für die Daten
