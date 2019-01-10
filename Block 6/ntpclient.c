@@ -8,7 +8,6 @@
 #include <math.h>
 #include <sys/time.h>
 #include <string.h>
-#include <endian.h>
 
 #define SIZE 48
 #define UDP "123"
@@ -25,10 +24,7 @@ typedef unsigned int tdist;                /* NTP short format */
 #define D2LFP(a) ((tstamp)((a)*FRAC)) /* NTP timestamp */
 #define LFP2D(a) ((double)(a) / FRAC)
 #define U2LFP(a) (((unsigned long long)((a).tv_sec + JAN_1970) << 32) + (unsigned long long)((a).tv_usec / 1e6 * FRAC))
-#define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
-#define ntohll(x) ((1 == ntohl(1)) ? (x) : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
-
-//
+//END OF MACROS
 
 typedef struct message
 {
@@ -45,10 +41,6 @@ typedef struct message
     tstamp transmit;
 } message;
 
-unsigned int little_to_big(unsigned int little)
-{
-    return (((little >> 24) & 0x000000ff) | ((little >> 8) & 0x0000ff00) | ((little << 8) & 0x00ff0000) | ((little << 24) & 0xff000000));
-}
 //Function modified from RFC 5905
 tstamp get_time()
 {
@@ -68,6 +60,7 @@ tstamp get_time()
 *   Input: char header, starting position of time to convert
 *   Output: Time in tstamp format
 */
+
 tstamp char_to_tstamp(unsigned char *header, int index)
 {
     tstamp lfp = 0;
@@ -81,11 +74,6 @@ tstamp char_to_tstamp(unsigned char *header, int index)
             fractions += (header[index + i] << (24 - 8 * (i - 4)));
     }
     lfp = (((tstamp)seconds) << 32) | ((tstamp)fractions);
-    /*  if you want to see the output
-    printf("%u \n", seconds);
-    printf("%u \n", fractions);
-    printf("%f \n", LFP2D(lfp));
-    */
     return lfp;
 }
 
@@ -119,7 +107,7 @@ int main(int argc, char *argv[])
     double max_delay;
     double min_delay;
     double min_dispersion = 0;
-    double root_dispersion = 0;
+    double min_root_dispersion = 0;
     int client_socket;
     int result;
 
@@ -145,42 +133,17 @@ int main(int argc, char *argv[])
         min_delay = 0;
         int sum_of_delay = 0;
         int sum_of_offset = 0;
-        for (int i = 0; i < 1; i++) //for later change to 8
+        for (int i = 0; i < 8; i++) //for later change to 8
         {
-            unsigned char buffer[SIZE + 1];
-            msg = calloc(sizeof(message), SIZE + 1);
+            unsigned char buffer[SIZE];
+            memset(buffer, 0, SIZE);
             buffer[0] = 0b00100011;
-            struct timeval unix_time;
-            gettimeofday(&unix_time, NULL);                             //Get current UNIX time
-            unsigned int seconds = unix_time.tv_sec + UNIX_TIME_OFFSET; //Add UNIX time offset
-            unsigned int fractions = unix_time.tv_usec / 1e6 * FRAC;    //Convert miliseconds to fractions
-            //seconds = htonl(seconds);
-            //seconds = htonl(fractions);
-            unsigned int *seconds_pointer = &seconds;
-            unsigned int *fractions_pointer = &fractions;
-            printf("AFTER CONVERSION\n");
-            seconds = htonl(seconds);
-            fractions = htonl(fractions);
-            memcpy(buffer + 24, seconds_pointer, 4);
-            memcpy(buffer + 28, fractions_pointer, 4);
-            /* for testing
-            printf("%x\n", buffer[24]);
-            printf("%x\n", buffer[25]);
-            printf("%x\n", buffer[26]);
-            printf("%x\n", buffer[27]);
-            printf("%x\n", buffer[28]);
-            printf("%x\n", buffer[29]);
-            printf("%x\n", buffer[30]);
-            printf("%x\n", buffer[31]);
-            //printf("%u seconds\n", seconds);
-            //printf("%u fractions\n", fractions);
-            */
-            msg->origin = get_time(); //TODO: get_time() since NTP Server doesn't respond with the timestamp we sent (only with 0)
-            //msg->origin = (get_time()); //get current origin clock and pack it into the message  <- also a problem, needs bit flipping, since the server doesnt answer with it
-            //printf("origin before sending: %f\n", LFP2D(msg->origin));
-            sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen);              //send message
-            recvfrom(client_socket, &buffer, SIZE + 1, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
-            tstamp destination = get_time();                                                            //get "destination" clock
+            msg = calloc(sizeof(message), SIZE);
+
+            tstamp origin = get_time();
+            sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen);          //send message
+            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
+            tstamp destination = get_time();                                                        //get "destination" clock
             //parse the message
             msg->header = buffer[0];
             msg->stratum = buffer[1];
@@ -190,25 +153,22 @@ int main(int argc, char *argv[])
             msg->dispersion = char_to_tdist(buffer, 8);
             msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) + buffer[15]; //leaving like that since ref_id was meant to be a char
             msg->reference = char_to_tstamp(buffer, 16);
-            //msg->origin = char_to_tstamp(buffer, 24);
             msg->receive = char_to_tstamp(buffer, 32);
-            printf("Time at origin: %f \n", LFP2D(msg->origin));
-            //message parsed*/
-            /*printf("%u\n", buffer[25]);
-            printf("%u\n", buffer[26]);
-            printf("%u\n", buffer[27]);
-            printf("%u\n", buffer[28]);
-            printf("%u\n", buffer[29]);
-            printf("%u\n", buffer[30]);
-            printf("msg->origin %f\n", LFP2D(msg->origin));
-            printf("%f\n", FP2D(msg->delay));*/
+            msg->transmit = char_to_tstamp(buffer, 40);
 
-            //TODO: figure out how to substract timestamps. printing out e.g. LFP2D(msg->receive) (timestamp as float) yields the correct current time
-            tstamp delay = ((destination - msg->origin) + (msg->transmit - msg->receive)) / 2;
-            double offset = ((msg->receive - msg->origin) + (msg->transmit - destination)) / 2;
+            /*printf("Time at reference: %f \n", LFP2D(msg->reference));
+            printf("Time at origin: %f \n", LFP2D(origin));
+            printf("Time at receive: %f \n", LFP2D(msg->receive));
+            printf("Time at transmit: %f \n", LFP2D(msg->transmit));
+            printf("Time at destination: %f \n", LFP2D(destination));
+            */
+            //message parsed*/
+
+            double delay = ((LFP2D(destination) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(msg->receive))) / 2;
+            double offset = ((LFP2D(msg->receive) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(destination))) / 2;
             sum_of_delay += delay;
             sum_of_offset += offset;
-            printf("%f\n", LFP2D(delay));
+            //printf("%f\n", FP2D(msg->dispersion));
             if (i == 0) //update max_delay
                 max_delay = delay;
             else if (max_delay < delay)
@@ -222,14 +182,18 @@ int main(int argc, char *argv[])
 
         /*TODO: 
         Calculate dispersion for all servers, select the one with smallest dispersion
+        Display all information for the server
+        Geben Sie anschließend den gewahlten Server aus, die lokale Zeit, den durchschnittlichen Offset und die angepasste Zeit aus
         */
 
+        double root_dispersion = FP2D(msg->dispersion);
+        double current_dispersion = max_delay - min_delay;
+        double dispersion_sum = root_dispersion + current_dispersion;
+
         if (j == 0)
+            min_root_dispersion = msg->dispersion;
+        else if (min_root_dispersion > msg->dispersion)
             root_dispersion = msg->dispersion;
-        else if (root_dispersion > msg->dispersion)
-            root_dispersion = msg->dispersion;
-        //TODO: figure out how to add tdist with tstamp
-        tstamp current_dispersion = max_delay - min_delay;
         if (j == 0)
             min_dispersion = current_dispersion;
         else if (min_dispersion > current_dispersion)
@@ -241,3 +205,29 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(results);
 }
+
+/*struct timeval unix_time;
+gettimeofday(&unix_time, NULL);                             //Get current UNIX time
+unsigned int seconds = unix_time.tv_sec + UNIX_TIME_OFFSET; //Add UNIX time offset
+unsigned int fractions = unix_time.tv_usec / 1e6 * FRAC;    //Convert miliseconds to fractions
+//seconds = htonl(seconds);
+//seconds = htonl(fractions);
+unsigned int *seconds_pointer = &seconds;
+unsigned int *fractions_pointer = &fractions;
+printf("AFTER CONVERSION\n");
+seconds = htonl(seconds);
+fractions = htonl(fractions);
+memcpy(buffer + 24, seconds_pointer, 4);
+memcpy(buffer + 28, fractions_pointer, 4);
+/* for testing
+            printf("%x\n", buffer[24]);
+            printf("%x\n", buffer[25]);
+            printf("%x\n", buffer[26]);
+            printf("%x\n", buffer[27]);
+            printf("%x\n", buffer[28]);
+            printf("%x\n", buffer[29]);
+            printf("%x\n", buffer[30]);
+            printf("%x\n", buffer[31]);
+            //printf("%u seconds\n", seconds);
+            //printf("%u fractions\n", fractions);
+            */
