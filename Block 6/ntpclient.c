@@ -26,8 +26,7 @@ typedef unsigned int tdist;                /* NTP short format */
 #define U2LFP(a) (((unsigned long long)((a).tv_sec + JAN_1970) << 32) + (unsigned long long)((a).tv_usec / 1e6 * FRAC))
 //END OF MACROS
 
-typedef struct message
-{
+typedef struct message {
     unsigned char header;
     unsigned char stratum;
     unsigned char poll;
@@ -42,8 +41,7 @@ typedef struct message
 } message;
 
 //Function modified from RFC 5905
-tstamp get_time()
-{
+tstamp get_time() {
     tstamp current_time;
     unsigned int fractions;
     unsigned int seconds;
@@ -51,7 +49,7 @@ tstamp get_time()
     gettimeofday(&unix_time, NULL);
     seconds = unix_time.tv_sec + UNIX_TIME_OFFSET;
     fractions = unix_time.tv_usec / 1e6 * FRAC;
-    current_time = (((tstamp)seconds) << 32) | ((tstamp)fractions);
+    current_time = (((tstamp) seconds) << 32) | ((tstamp) fractions);
     return current_time;
 }
 
@@ -61,19 +59,17 @@ tstamp get_time()
 *   Output: Time in tstamp format
 */
 
-tstamp char_to_tstamp(unsigned char *header, int index)
-{
+tstamp char_to_tstamp(unsigned char *header, int index) {
     tstamp lfp = 0;
     unsigned int seconds = 0;
     unsigned int fractions = 0;
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         if (i < 4)
             seconds += (header[index + i] << (24 - 8 * i));
         else
             fractions += (header[index + i] << (24 - 8 * (i - 4)));
     }
-    lfp = (((tstamp)seconds) << 32) | ((tstamp)fractions);
+    lfp = (((tstamp) seconds) << 32) | ((tstamp) fractions);
     return lfp;
 }
 
@@ -83,12 +79,10 @@ tstamp char_to_tstamp(unsigned char *header, int index)
 *   Output: Time in tdist format
 */
 
-tstamp char_to_tdist(char *header, int index)
-{
+tstamp char_to_tdist(char *header, int index) {
 
     tdist fp = 0;
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         tstamp bla = header[index];
         fp += (header[index] << (24 - 8 * i));
         index++;
@@ -96,8 +90,7 @@ tstamp char_to_tdist(char *header, int index)
     return fp;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     int number_of_servers = argc - 1; //copy servers from console
     char *server[number_of_servers];
     for (int i = 0; i < number_of_servers; i++)
@@ -110,6 +103,8 @@ int main(int argc, char *argv[])
     double min_root_dispersion = 0;
     int client_socket;
     int result;
+    char *bestServer = NULL;
+    int average_offset = 0;
 
     //boring structs for sockets
     struct addrinfo *results;
@@ -120,13 +115,12 @@ int main(int argc, char *argv[])
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_DGRAM;
 
-    if (result == -1)
-    {
+    if (result == -1) {
         perror("getaddrinfo error");
         exit(1);
     }
-    for (int j = 0; j < number_of_servers; j++)
-    {
+
+    for (int j = 0; j < number_of_servers; j++) {
         result = getaddrinfo(server[j], UDP, &socket_to_conect_config, &results);
         client_socket = socket(AF_INET, SOCK_DGRAM, 0);
         max_delay = 0;
@@ -142,7 +136,7 @@ int main(int argc, char *argv[])
 
             tstamp origin = get_time();
             sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen);          //send message
-            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
+            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *) &src_addr, &src_addr_len); //receive answer
             tstamp destination = get_time();                                                        //get "destination" clock
             //parse the message
             msg->header = buffer[0];
@@ -151,7 +145,8 @@ int main(int argc, char *argv[])
             msg->precision = buffer[3];
             msg->delay = char_to_tdist(buffer, 4);
             msg->dispersion = char_to_tdist(buffer, 8);
-            msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) + buffer[15]; //leaving like that since ref_id was meant to be a char
+            msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) +
+                                buffer[15]; //leaving like that since ref_id was meant to be a char
             msg->reference = char_to_tstamp(buffer, 16);
             msg->receive = char_to_tstamp(buffer, 32);
             msg->transmit = char_to_tstamp(buffer, 40);
@@ -173,7 +168,7 @@ int main(int argc, char *argv[])
                 max_delay = delay;
             else if (max_delay < delay)
                 max_delay = delay;
-
+            //TODO min_delay?
             if (i == 0) //update min_delay
                 min_delay = offset;
             else if (min_delay > offset)
@@ -190,18 +185,34 @@ int main(int argc, char *argv[])
         double current_dispersion = max_delay - min_delay;
         double dispersion_sum = root_dispersion + current_dispersion;
 
-        if (j == 0)
+        if (j == 0){
             min_root_dispersion = msg->dispersion;
+            char *bestServer[len(&server[j])] = server[j];
+            average_offset = //TODO? /8#
+        }
         else if (min_root_dispersion > msg->dispersion)
             root_dispersion = msg->dispersion;
-        if (j == 0)
+        if (j == 0){
             min_dispersion = current_dispersion;
-        else if (min_dispersion > current_dispersion)
+            char *bestServer[len(&server[j])] = server[j];
+            average_offset = //TODO? /8
+        }
+        else if (min_dispersion > current_dispersion){
             min_dispersion = current_dispersion;
+            char *bestServer[len(&server[j])] = server[j];
+            average_offset = //TODO? /8
+        }
 
-        //print_information();
+        //TODO right parameter and %wildcard
+        printf("{%s} {%d} {%d} {%u} {%u} ", &server[j], root_dispersion, dispersion_sum, sum_of_delay / 8, sum_of_offset / 8);
         close(client_socket);
     }
+
+    //TODO not tested and might not be right values
+    printf("choosen server: %s\n", &bestServer);
+    printf("local time: %u\n", get_time());
+    printf("average offset: %u\n", average_offset);
+    printf("corrected time: %u\n", get_time() - average_offset);
 
     freeaddrinfo(results);
 }
