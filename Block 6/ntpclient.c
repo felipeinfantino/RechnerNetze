@@ -103,8 +103,8 @@ int main(int argc, char *argv[]) {
     double min_root_dispersion = 0;
     int client_socket;
     int result;
-    char *bestServer = NULL;
-    int average_offset = 0;
+    char *best_server = NULL;
+    double average_offset = 0;
 
     //boring structs for sockets
     struct addrinfo *results;
@@ -125,8 +125,12 @@ int main(int argc, char *argv[]) {
         client_socket = socket(AF_INET, SOCK_DGRAM, 0);
         max_delay = 0;
         min_delay = 0;
-        int sum_of_delay = 0;
-        int sum_of_offset = 0;
+        double sum_of_delay = 0;
+        double sum_of_offset = 0;
+        double sum_of_root_dispersion = 0;
+        double dispersion = 0;
+        double best_server_dispersion = 0;
+
         for (int i = 0; i < 8; i++) //for later change to 8
         {
             unsigned char buffer[SIZE];
@@ -151,68 +155,84 @@ int main(int argc, char *argv[]) {
             msg->receive = char_to_tstamp(buffer, 32);
             msg->transmit = char_to_tstamp(buffer, 40);
 
-            /*printf("Time at reference: %f \n", LFP2D(msg->reference));
-            printf("Time at origin: %f \n", LFP2D(origin));
-            printf("Time at receive: %f \n", LFP2D(msg->receive));
-            printf("Time at transmit: %f \n", LFP2D(msg->transmit));
+//            Reference Timestamp: Time when the system clock was last set or corrected, in NTP timestamp format.
+//
+//            Origin Timestamp (org): Time at the client when the request departed for the server, in NTP timestamp format.
+//
+//            Receive Timestamp (rec): Time at the server when the request arrived from the client, in NTP timestamp format.
+//
+//            Transmit Timestamp (xmt): Time at the server when the response left the client, in NTP timestamp format.
+//
+//            Destination Timestamp (dst): Time at the client when the reply arrived from the server, in NTP timestamp format.
+//
+//            Note: The Destination Timestamp field is not included as a header field; it is determined upon arrival of the packet and made available in the packet buffer data structure.
+
+            printf("\nTime at reference:   %f \n", LFP2D(msg->reference));
+            printf("Time at origin:      %f \n", LFP2D(origin));
+            printf("Time at receive:     %f \n", LFP2D(msg->receive));
+            printf("Time at transmit:    %f \n", LFP2D(msg->transmit));
             printf("Time at destination: %f \n", LFP2D(destination));
-            */
+
             //message parsed*/
 
-            double delay = ((LFP2D(destination) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(msg->receive))) / 2;
+            double delay = ((LFP2D(destination) - LFP2D(origin)) - (LFP2D(msg->transmit) - LFP2D(msg->receive))) /
+                           2; // - instead of  + ?
             double offset = ((LFP2D(msg->receive) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(destination))) / 2;
+            printf("Delay: %f \n", delay);
+            printf("Offset: %f \n", offset);
+            printf("root_dispersion: %f \n", LFP2D(msg->dispersion));
+
             sum_of_delay += delay;
             sum_of_offset += offset;
-            //printf("%f\n", FP2D(msg->dispersion));
-            if (i == 0) //update max_delay
-                max_delay = delay;
-            else if (max_delay < delay)
-                max_delay = delay;
-            //TODO min_delay?
-            if (i == 0) //update min_delay
-                min_delay = offset;
-            else if (min_delay > offset)
-                min_delay = offset;
-        }
+            sum_of_root_dispersion += LFP2D(msg->dispersion);
 
-        /*TODO: 
-        Calculate dispersion for all servers, select the one with smallest dispersion
-        Display all information for the server
-        Geben Sie anschließend den gewahlten Server aus, die lokale Zeit, den durchschnittlichen Offset und die angepasste Zeit aus
-        */
+            if (i == 0) {
+                max_delay = delay;
+                min_delay = delay;
+            } else {
+                if (delay > max_delay) max_delay = delay;
+                if (delay < min_delay) min_delay = delay;
+            }
+
+        }
 
         double root_dispersion = FP2D(msg->dispersion);
-        double current_dispersion = max_delay - min_delay;
-        double dispersion_sum = root_dispersion + current_dispersion;
+        dispersion = max_delay - min_delay;
+        double dispersion_criteria = root_dispersion + dispersion;
 
-        if (j == 0){
-            min_root_dispersion = msg->dispersion;
-            char *bestServer[len(&server[j])] = server[j];
-            average_offset = //TODO? /8#
+        printf("\ndispersion: %f \n", dispersion);
+        printf("max_delay: %f \n", max_delay);
+        printf("min_delay: %f \n", min_delay);
+        printf("sum offset: %f\n", sum_of_offset);
+        printf("sum delay:  %f\n", sum_of_delay);
+        printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
+        printf("dispersion_criteria: %f\n", dispersion_criteria);
+        //choose best server
+        if (j == 0) {
+            best_server_dispersion = dispersion_criteria;
+            best_server = server[j];
+            average_offset = sum_of_offset / 8;
+        } else {
+            if (dispersion_criteria < best_server_dispersion) {
+                best_server_dispersion = dispersion;
+                best_server = server[j];
+                average_offset = sum_of_offset / 8;
+            }
         }
-        else if (min_root_dispersion > msg->dispersion)
-            root_dispersion = msg->dispersion;
-        if (j == 0){
-            min_dispersion = current_dispersion;
-            char *bestServer[len(&server[j])] = server[j];
-            average_offset = //TODO? /8
-        }
-        else if (min_dispersion > current_dispersion){
-            min_dispersion = current_dispersion;
-            char *bestServer[len(&server[j])] = server[j];
-            average_offset = //TODO? /8
-        }
+        printf("best_server_dispersion: %f\n", best_server_dispersion);
 
-        //TODO right parameter and %wildcard
-        printf("{%s} {%d} {%d} {%u} {%u} ", &server[j], root_dispersion, dispersion_sum, sum_of_delay / 8, sum_of_offset / 8);
+        printf("\n{%s} {%f} {%f} {%f} {%f}\n", server[j], sum_of_root_dispersion / 8, dispersion, sum_of_delay / 8,
+               sum_of_offset / 8);
         close(client_socket);
     }
 
     //TODO not tested and might not be right values
-    printf("choosen server: %s\n", &bestServer);
-    printf("local time: %u\n", get_time());
-    printf("average offset: %u\n", average_offset);
-    printf("corrected time: %u\n", get_time() - average_offset);
+    tstamp local = get_time();
+    printf("choosen server: %s\n", best_server);
+    printf("local time:     %f\n", LFP2D(local));
+    printf("average offset: %f\n", average_offset);
+    printf("corrected time: %f\n",
+           LFP2D(local) - average_offset); //TODO works for negative and is it even right formula?
 
     freeaddrinfo(results);
 }
