@@ -213,15 +213,12 @@ int main(int argc, char *argv[]) {
         //choose best server
         if (j == 0) {
             best_server_dispersion = dispersion_criteria;
-            printf("\n\n\n\n\nchanged best server first, root_disp : %f\n\n\n\n\n\n", root_dispersion);
-
-		best_server = server[j];
+            best_server = server[j];
             average_offset = sum_of_offset / 8;
         } else {
             if (dispersion_criteria < best_server_dispersion) {
-                best_server_dispersion = dispersion_criteria; //TODO wut?
-                printf("\n\n\n\n\nchanged best server, root_disp : %f\n\n\n\n\n\n", root_dispersion);
-		best_server = server[j];
+                best_server_dispersion = dispersion_criteria; 
+                best_server = server[j];
                 average_offset = sum_of_offset / 8;
             }
         }
