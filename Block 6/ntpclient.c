@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
             sum_of_offset += offset;
             sum_of_root_dispersion += LFP2D(msg->dispersion);
 
-            if (i == 0) {
+            if (j == 0 && i == 0) {
                 max_delay = delay;
                 min_delay = delay;
             } else {
@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
         printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
         printf("dispersion_criteria: %f\n", dispersion_criteria);
         //choose best server
-        if (j == 0) {
+        if (j == 0 && i == 0) {
             best_server_dispersion = dispersion_criteria;
             best_server = server[j];
             average_offset = sum_of_offset / 8;
