@@ -120,6 +120,9 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+
+    double best_server_dispersion = 0;
+
     for (int j = 0; j < number_of_servers; j++) {
         result = getaddrinfo(server[j], UDP, &socket_to_conect_config, &results);
         client_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -129,7 +132,6 @@ int main(int argc, char *argv[]) {
         double sum_of_offset = 0;
         double sum_of_root_dispersion = 0;
         double dispersion = 0;
-        double best_server_dispersion = 0;
 
         for (int i = 0; i < 8; i++) //for later change to 8
         {
@@ -149,6 +151,7 @@ int main(int argc, char *argv[]) {
             msg->precision = buffer[3];
             msg->delay = char_to_tdist(buffer, 4);
             msg->dispersion = char_to_tdist(buffer, 8);
+
             msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) +
                                 buffer[15]; //leaving like that since ref_id was meant to be a char
             msg->reference = char_to_tstamp(buffer, 16);
@@ -196,7 +199,7 @@ int main(int argc, char *argv[]) {
 
         }
 
-        double root_dispersion = FP2D(msg->dispersion);
+        double root_dispersion = sum_of_root_dispersion/8;
         dispersion = max_delay - min_delay;
         double dispersion_criteria = root_dispersion + dispersion;
 
@@ -208,14 +211,17 @@ int main(int argc, char *argv[]) {
         printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
         printf("dispersion_criteria: %f\n", dispersion_criteria);
         //choose best server
-        if (j == 0 && i == 0) {
+        if (j == 0) {
             best_server_dispersion = dispersion_criteria;
-            best_server = server[j];
+            printf("\n\n\n\n\nchanged best server first, root_disp : %f\n\n\n\n\n\n", root_dispersion);
+
+		best_server = server[j];
             average_offset = sum_of_offset / 8;
         } else {
             if (dispersion_criteria < best_server_dispersion) {
-                best_server_dispersion = dispersion;
-                best_server = server[j];
+                best_server_dispersion = dispersion_criteria; //TODO wut?
+                printf("\n\n\n\n\nchanged best server, root_disp : %f\n\n\n\n\n\n", root_dispersion);
+		best_server = server[j];
                 average_offset = sum_of_offset / 8;
             }
         }
@@ -228,11 +234,11 @@ int main(int argc, char *argv[]) {
 
     //TODO not tested and might not be right values
     tstamp local = get_time();
-    printf("choosen server: %s\n", best_server);
+    printf("chosen server: %s\n", best_server);
     printf("local time:     %f\n", LFP2D(local));
     printf("average offset: %f\n", average_offset);
     printf("corrected time: %f\n",
-           LFP2D(local) - average_offset); //TODO works for negative and is it even right formula?
+           LFP2D(local) + average_offset); //TODO works for negative and is it even right formula?
 
     freeaddrinfo(results);
 }
