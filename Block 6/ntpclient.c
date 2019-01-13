@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
     int result;
     char *best_server = NULL;
     double average_offset = 0;
+    fd_set readfds;
 
     //boring structs for sockets
     struct addrinfo *results;
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
         double sum_of_offset = 0;
         double sum_of_root_dispersion = 0;
         double dispersion = 0;
+        int n = client_socket + 1;
 
         for (int i = 0; i < 8; i++) //for later change to 8
         {
@@ -147,9 +149,17 @@ int main(int argc, char *argv[])
             memset(buffer, 0, SIZE);
             buffer[0] = 0b00100011;
             msg = calloc(sizeof(message), SIZE);
-
+            FD_ZERO(&readfds);
+            FD_SET(client_socket, &readfds);
+            struct timeval tv = {1, 0};
             tstamp origin = get_time();
-            sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen);          //send message
+            sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen); //send message
+            if (select(n, &readfds, NULL, NULL, &tv) == 0)
+            {
+                printf("Server %s doesn't respond.\n", server[j]);
+                i = 10;
+                continue;
+            }
             recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
             tstamp destination = get_time();                                                        //get "destination" clock
             //parse the message
@@ -189,9 +199,9 @@ int main(int argc, char *argv[])
             double delay = ((LFP2D(destination) - LFP2D(origin)) - (LFP2D(msg->transmit) - LFP2D(msg->receive))) /
                            2; // - instead of  + ?
             double offset = ((LFP2D(msg->receive) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(destination))) / 2;
-            printf("Delay: %f \n", delay);
-            printf("Offset: %f \n", offset);
-            printf("root_dispersion: %f \n", LFP2D(msg->dispersion));
+            printf("Delay: %.9f \n", delay);
+            printf("Offset: %.9f \n", offset);
+            //printf("root_dispersion: %.9f \n", LFP2D(msg->dispersion));
 
             sum_of_delay += delay;
             sum_of_offset += offset;
@@ -214,12 +224,12 @@ int main(int argc, char *argv[])
         double root_dispersion = sum_of_root_dispersion / 8;
         dispersion = max_delay - min_delay;
         double dispersion_criteria = root_dispersion + dispersion;
-
-        printf("\ndispersion: %f \n", dispersion);
-        printf("max_delay: %f \n", max_delay);
-        printf("min_delay: %f \n", min_delay);
-        printf("sum offset: %f\n", sum_of_offset);
-        printf("sum delay:  %f\n", sum_of_delay);
+        printf("\ndispersion: %.9f \n", dispersion);
+        printf("root_dispersion: %.9f \n", root_dispersion);
+        printf("max_delay: %.9f \n", max_delay);
+        printf("min_delay: %.9f \n", min_delay);
+        printf("sum offset: %.9f\n", sum_of_offset);
+        printf("sum delay:  %.9f\n", sum_of_delay);
         printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
         printf("dispersion_criteria: %f\n", dispersion_criteria);
         //choose best server
@@ -238,9 +248,9 @@ int main(int argc, char *argv[])
                 average_offset = sum_of_offset / 8;
             }
         }
-        printf("best_server_dispersion: %f\n", best_server_dispersion);
+        printf("best_server_dispersion: %.9f\n", best_server_dispersion);
 
-        printf("\n{%s} {%f} {%f} {%f} {%f}\n", server[j], sum_of_root_dispersion / 8, dispersion, sum_of_delay / 8,
+        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / 8, dispersion, sum_of_delay / 8,
                sum_of_offset / 8);
         close(client_socket);
     }
