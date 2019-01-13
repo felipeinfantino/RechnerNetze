@@ -113,6 +113,7 @@ int main(int argc, char *argv[])
     char *best_server = NULL;
     double average_offset = 0;
     fd_set readfds;
+    int i;
 
     //boring structs for sockets
     struct addrinfo *results;
@@ -143,7 +144,7 @@ int main(int argc, char *argv[])
         double dispersion = 0;
         int n = client_socket + 1;
 
-        for (int i = 0; i < 8; i++) //for later change to 8
+        for (i = 0; i < 8; i++) //for later change to 8
         {
             unsigned char buffer[SIZE];
             memset(buffer, 0, SIZE);
@@ -157,8 +158,8 @@ int main(int argc, char *argv[])
             if (select(n, &readfds, NULL, NULL, &tv) == 0)
             {
                 printf("Server %s doesn't respond.\n", server[j]);
-                i = 10;
-                continue;
+                i--;
+                break;
             }
             recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
             tstamp destination = get_time();                                                        //get "destination" clock
@@ -221,10 +222,11 @@ int main(int argc, char *argv[])
             }
         }
 
-        double root_dispersion = sum_of_root_dispersion / 8;
+        double root_dispersion = sum_of_root_dispersion / i;
         dispersion = max_delay - min_delay;
         double dispersion_criteria = root_dispersion + dispersion;
-        printf("\ndispersion: %.9f \n", dispersion);
+        printf("\nnumber of answered queries: %i\n", i);
+        printf("dispersion: %.9f \n", dispersion);
         printf("root_dispersion: %.9f \n", root_dispersion);
         printf("max_delay: %.9f \n", max_delay);
         printf("min_delay: %.9f \n", min_delay);
@@ -237,7 +239,7 @@ int main(int argc, char *argv[])
         {
             best_server_dispersion = dispersion_criteria;
             best_server = server[j];
-            average_offset = sum_of_offset / 8;
+            average_offset = sum_of_offset / i;
         }
         else
         {
@@ -245,13 +247,13 @@ int main(int argc, char *argv[])
             {
                 best_server_dispersion = dispersion_criteria;
                 best_server = server[j];
-                average_offset = sum_of_offset / 8;
+                average_offset = sum_of_offset / i;
             }
         }
         printf("best_server_dispersion: %.9f\n", best_server_dispersion);
 
-        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / 8, dispersion, sum_of_delay / 8,
-               sum_of_offset / 8);
+        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / i, dispersion, sum_of_delay / i,
+               sum_of_offset / i);
         close(client_socket);
     }
 
