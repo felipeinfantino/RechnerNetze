@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
     printf("average offset: %f\n", average_offset);
     printf("corrected time: %f\n",
            LFP2D(local) + average_offset); //TODO works for negative and is it even right formula?
-
+	if (argc > 1)
     freeaddrinfo(results);
 }
 
