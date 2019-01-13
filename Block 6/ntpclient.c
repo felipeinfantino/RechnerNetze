@@ -26,7 +26,8 @@ typedef unsigned int tdist;                /* NTP short format */
 #define U2LFP(a) (((unsigned long long)((a).tv_sec + JAN_1970) << 32) + (unsigned long long)((a).tv_usec / 1e6 * FRAC))
 //END OF MACROS
 
-typedef struct message {
+typedef struct message
+{
     unsigned char header;
     unsigned char stratum;
     unsigned char poll;
@@ -41,7 +42,8 @@ typedef struct message {
 } message;
 
 //Function modified from RFC 5905
-tstamp get_time() {
+tstamp get_time()
+{
     tstamp current_time;
     unsigned int fractions;
     unsigned int seconds;
@@ -49,7 +51,7 @@ tstamp get_time() {
     gettimeofday(&unix_time, NULL);
     seconds = unix_time.tv_sec + UNIX_TIME_OFFSET;
     fractions = unix_time.tv_usec / 1e6 * FRAC;
-    current_time = (((tstamp) seconds) << 32) | ((tstamp) fractions);
+    current_time = (((tstamp)seconds) << 32) | ((tstamp)fractions);
     return current_time;
 }
 
@@ -59,17 +61,19 @@ tstamp get_time() {
 *   Output: Time in tstamp format
 */
 
-tstamp char_to_tstamp(unsigned char *header, int index) {
+tstamp char_to_tstamp(unsigned char *header, int index)
+{
     tstamp lfp = 0;
     unsigned int seconds = 0;
     unsigned int fractions = 0;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         if (i < 4)
             seconds += (header[index + i] << (24 - 8 * i));
         else
             fractions += (header[index + i] << (24 - 8 * (i - 4)));
     }
-    lfp = (((tstamp) seconds) << 32) | ((tstamp) fractions);
+    lfp = (((tstamp)seconds) << 32) | ((tstamp)fractions);
     return lfp;
 }
 
@@ -79,10 +83,12 @@ tstamp char_to_tstamp(unsigned char *header, int index) {
 *   Output: Time in tdist format
 */
 
-tstamp char_to_tdist(char *header, int index) {
+tstamp char_to_tdist(char *header, int index)
+{
 
     tdist fp = 0;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++)
+    {
         tstamp bla = header[index];
         fp += (header[index] << (24 - 8 * i));
         index++;
@@ -90,7 +96,8 @@ tstamp char_to_tdist(char *header, int index) {
     return fp;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     int number_of_servers = argc - 1; //copy servers from console
     char *server[number_of_servers];
     for (int i = 0; i < number_of_servers; i++)
@@ -115,15 +122,16 @@ int main(int argc, char *argv[]) {
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_DGRAM;
 
-    if (result == -1) {
+    if (result == -1)
+    {
         perror("getaddrinfo error");
         exit(1);
     }
 
-
     double best_server_dispersion = 0;
 
-    for (int j = 0; j < number_of_servers; j++) {
+    for (int j = 0; j < number_of_servers; j++)
+    {
         result = getaddrinfo(server[j], UDP, &socket_to_conect_config, &results);
         client_socket = socket(AF_INET, SOCK_DGRAM, 0);
         max_delay = 0;
@@ -142,7 +150,7 @@ int main(int argc, char *argv[]) {
 
             tstamp origin = get_time();
             sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen);          //send message
-            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *) &src_addr, &src_addr_len); //receive answer
+            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
             tstamp destination = get_time();                                                        //get "destination" clock
             //parse the message
             msg->header = buffer[0];
@@ -158,24 +166,24 @@ int main(int argc, char *argv[]) {
             msg->receive = char_to_tstamp(buffer, 32);
             msg->transmit = char_to_tstamp(buffer, 40);
 
-//            Reference Timestamp: Time when the system clock was last set or corrected, in NTP timestamp format.
-//
-//            Origin Timestamp (org): Time at the client when the request departed for the server, in NTP timestamp format.
-//
-//            Receive Timestamp (rec): Time at the server when the request arrived from the client, in NTP timestamp format.
-//
-//            Transmit Timestamp (xmt): Time at the server when the response left the client, in NTP timestamp format.
-//
-//            Destination Timestamp (dst): Time at the client when the reply arrived from the server, in NTP timestamp format.
-//
-//            Note: The Destination Timestamp field is not included as a header field; it is determined upon arrival of the packet and made available in the packet buffer data structure.
+            //            Reference Timestamp: Time when the system clock was last set or corrected, in NTP timestamp format.
+            //
+            //            Origin Timestamp (org): Time at the client when the request departed for the server, in NTP timestamp format.
+            //
+            //            Receive Timestamp (rec): Time at the server when the request arrived from the client, in NTP timestamp format.
+            //
+            //            Transmit Timestamp (xmt): Time at the server when the response left the client, in NTP timestamp format.
+            //
+            //            Destination Timestamp (dst): Time at the client when the reply arrived from the server, in NTP timestamp format.
+            //
+            //            Note: The Destination Timestamp field is not included as a header field; it is determined upon arrival of the packet and made available in the packet buffer data structure.
 
-            printf("\nTime at reference:   %f \n", LFP2D(msg->reference));
+            /*printf("\nTime at reference:   %f \n", LFP2D(msg->reference));
             printf("Time at origin:      %f \n", LFP2D(origin));
             printf("Time at receive:     %f \n", LFP2D(msg->receive));
             printf("Time at transmit:    %f \n", LFP2D(msg->transmit));
             printf("Time at destination: %f \n", LFP2D(destination));
-
+            */
             //message parsed*/
 
             double delay = ((LFP2D(destination) - LFP2D(origin)) - (LFP2D(msg->transmit) - LFP2D(msg->receive))) /
@@ -189,17 +197,21 @@ int main(int argc, char *argv[]) {
             sum_of_offset += offset;
             sum_of_root_dispersion += LFP2D(msg->dispersion);
 
-            if (j == 0 && i == 0) {
+            if (j == 0 && i == 0)
+            {
                 max_delay = delay;
                 min_delay = delay;
-            } else {
-                if (delay > max_delay) max_delay = delay;
-                if (delay < min_delay) min_delay = delay;
             }
-
+            else
+            {
+                if (delay > max_delay)
+                    max_delay = delay;
+                if (delay < min_delay)
+                    min_delay = delay;
+            }
         }
 
-        double root_dispersion = sum_of_root_dispersion/8;
+        double root_dispersion = sum_of_root_dispersion / 8;
         dispersion = max_delay - min_delay;
         double dispersion_criteria = root_dispersion + dispersion;
 
@@ -211,13 +223,17 @@ int main(int argc, char *argv[]) {
         printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
         printf("dispersion_criteria: %f\n", dispersion_criteria);
         //choose best server
-        if (j == 0) {
+        if (j == 0)
+        {
             best_server_dispersion = dispersion_criteria;
             best_server = server[j];
             average_offset = sum_of_offset / 8;
-        } else {
-            if (dispersion_criteria < best_server_dispersion) {
-                best_server_dispersion = dispersion_criteria; 
+        }
+        else
+        {
+            if (dispersion_criteria < best_server_dispersion)
+            {
+                best_server_dispersion = dispersion_criteria;
                 best_server = server[j];
                 average_offset = sum_of_offset / 8;
             }
