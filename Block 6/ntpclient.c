@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
                 i--;
                 break;
             }
+            //TODO mit connect?
             recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *)&src_addr, &src_addr_len); //receive answer
             tstamp destination = get_time();                                                        //get "destination" clock
             //parse the message
