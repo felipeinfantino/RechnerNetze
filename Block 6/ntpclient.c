@@ -113,11 +113,11 @@ int main(int argc, char *argv[]) {
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_DGRAM;
 
-    double max_delay[number_of_servers+1];
-    double min_delay[number_of_servers+1];
-    double sum_of_delay[number_of_servers+1];
-    double sum_of_offset[number_of_servers+1];
-    double sum_of_root_dispersion[number_of_servers+1];
+    double max_delay[number_of_servers + 1];
+    double min_delay[number_of_servers + 1];
+    double sum_of_delay[number_of_servers + 1];
+    double sum_of_offset[number_of_servers + 1];
+    double sum_of_root_dispersion[number_of_servers + 1];
 
     memset(max_delay, 0, sizeof(max_delay));
     memset(min_delay, 0, sizeof(min_delay));
@@ -127,6 +127,7 @@ int main(int argc, char *argv[]) {
 
     double best_server_dispersion = 0;
     for (int x = 0; x < 100; x++) {
+        int counter = 0;
         for (int j = 0; j < number_of_servers; j++) {
             result = getaddrinfo(server[j], UDP, &socket_to_conect_config, &results);
             if (result == -1) {
@@ -148,13 +149,13 @@ int main(int argc, char *argv[]) {
             tstamp origin = get_time();
             sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen); //send message
 //            for (i = 0; i < 1; i++) {
-                if (select(n, &readfds, NULL, NULL, &tv) == 0) {
-                    printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
-                    //printf("Server %s doesn't respond.\n", server[j]);
-   //                 i--;
-                    continue;
-                }
- //           }
+            if (select(n, &readfds, NULL, NULL, &tv) == 0) {
+                printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+                //printf("Server %s doesn't respond.\n", server[j]);
+                //                 i--;
+                continue;
+            }
+            //           }
             //TODO mit connect?
             recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *) &src_addr,
                      &src_addr_len); //receive answer
@@ -214,11 +215,14 @@ int main(int argc, char *argv[]) {
                 if (delay < min_delay[j])
                     min_delay[j] = delay;
             }
-	if (offset < -100000)
-		printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
-	else	
-            printf("%s,%.9f,%.9f,%u\n", server[j], offset, delay, msg->dispersion);
-
+            if (offset < -100000)
+                printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+            else if (counter == 3) {
+                printf("%s,%.9f,%.9f,%u\n", server[j], offset, delay, msg->dispersion);
+            } else {
+                printf("%s,%.9f,%.9f,%u,", server[j], offset, delay, msg->dispersion);
+            }
+	        counter++;
 
 //        printf("best_server_dispersion: %.9f\n", best_server_dispersion);
 
@@ -245,7 +249,8 @@ int main(int argc, char *argv[]) {
         if (i == 0) {
             best_server_dispersion = dispersion_criteria;
             best_server = server[i];
-            average_offset = sum_of_offset[i] / 100; //TODO 100 geht davon aus, dass alle erfolgreich waren. macht es einen Unterschied?
+            average_offset = sum_of_offset[i] /
+                             100; //TODO 100 geht davon aus, dass alle erfolgreich waren. macht es einen Unterschied?
         } else {
             if (dispersion_criteria < best_server_dispersion) {
                 best_server_dispersion = dispersion_criteria;
