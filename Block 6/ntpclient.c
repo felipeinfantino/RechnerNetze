@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
             sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen); //send message
 //            for (i = 0; i < 1; i++) {
             if (select(n, &readfds, NULL, NULL, &tv) == 0) {
-                printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+                printf("%s,%.9f,%.9f,%u", server[j], (double) 0, (double) 0, 0);
                 //printf("Server %s doesn't respond.\n", server[j]);
                 //                 i--;
                 continue;
@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
                     min_delay[j] = delay;
             }
             if (offset < -100000)
-                printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+                printf("%s,%.9f,%.9f,%u", server[j], (double) 0, (double) 0, 0);
             else if (counter == 3) {
                 printf("%s,%.9f,%.9f,%u\n", server[j], offset, delay, msg->dispersion);
             } else {
