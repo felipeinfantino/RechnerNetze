@@ -79,7 +79,7 @@ tstamp char_to_tstamp(unsigned char *header, int index) {
 *   Output: Time in tdist format
 */
 
-tstamp char_to_tdist(char *header, int index) {
+tdist char_to_tdist(char *header, int index) {
 
     tdist fp = 0;
     for (int i = 0; i < 4; i++) {
@@ -97,10 +97,6 @@ int main(int argc, char *argv[]) {
         server[i] = argv[i + 1];
 
     message *msg;
-    double max_delay;
-    double min_delay;
-    double min_dispersion = 0;
-    double min_root_dispersion = 0;
     int client_socket;
     int result;
     char *best_server = NULL;
@@ -117,106 +113,125 @@ int main(int argc, char *argv[]) {
     socket_to_conect_config.ai_family = AF_INET;
     socket_to_conect_config.ai_socktype = SOCK_DGRAM;
 
-    if (result == -1) {
-        perror("getaddrinfo error");
-        exit(1);
-    }
+    double max_delay[number_of_servers+1];
+    double min_delay[number_of_servers+1];
+    double sum_of_delay[number_of_servers+1];
+    double sum_of_offset[number_of_servers+1];
+    double sum_of_root_dispersion[number_of_servers+1];
+
+    memset(max_delay, 0, sizeof(max_delay));
+    memset(min_delay, 0, sizeof(min_delay));
+    memset(sum_of_delay, 0, sizeof(sum_of_delay));
+    memset(sum_of_offset, 0, sizeof(sum_of_offset));
+    memset(sum_of_root_dispersion, 0, sizeof(sum_of_root_dispersion));
 
     double best_server_dispersion = 0;
     for (int x = 0; x < 100; x++) {
         for (int j = 0; j < number_of_servers; j++) {
             result = getaddrinfo(server[j], UDP, &socket_to_conect_config, &results);
+            if (result == -1) {
+                perror("getaddrinfo error");
+                exit(1);
+            }
             client_socket = socket(AF_INET, SOCK_DGRAM, 0);
-            max_delay = 0;
-            min_delay = 0;
-            double sum_of_delay = 0;
-            double sum_of_offset = 0;
-            double sum_of_root_dispersion = 0;
+
             double dispersion = 0;
             int n = client_socket + 1;
 
-            for (i = 0; i < 1; i++) //for later change to 8
-            {
-                unsigned char buffer[SIZE];
-                memset(buffer, 0, SIZE);
-                buffer[0] = 0b00100011;
-                msg = calloc(sizeof(message), SIZE);
-                FD_ZERO(&readfds);
-                FD_SET(client_socket, &readfds);
-                struct timeval tv = {1, 0};
-                tstamp origin = get_time();
-                sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen); //send message
+            unsigned char buffer[SIZE];
+            memset(buffer, 0, SIZE);
+            buffer[0] = 0b00100011;
+            msg = calloc(sizeof(message), SIZE);
+            FD_ZERO(&readfds);
+            FD_SET(client_socket, &readfds);
+            struct timeval tv = {1, 0};
+            tstamp origin = get_time();
+            sendto(client_socket, buffer, SIZE, 0, results->ai_addr, results->ai_addrlen); //send message
+//            for (i = 0; i < 1; i++) {
                 if (select(n, &readfds, NULL, NULL, &tv) == 0) {
-                    printf("Server %s doesn't respond.\n", server[j]);
-                    i--;
-                    break;
+                    printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+                    //printf("Server %s doesn't respond.\n", server[j]);
+   //                 i--;
+                    continue;
                 }
-                //TODO mit connect?
-                recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *) &src_addr,
-                         &src_addr_len); //receive answer
-                tstamp destination = get_time();                                                        //get "destination" clock
-                //parse the message
-                msg->header = buffer[0];
-                msg->stratum = buffer[1];
-                msg->poll = buffer[2];
-                msg->precision = buffer[3];
-                msg->delay = char_to_tdist(buffer, 4);
-                msg->dispersion = char_to_tdist(buffer, 8);
+ //           }
+            //TODO mit connect?
+            recvfrom(client_socket, &buffer, SIZE, 0, (struct sockaddr *) &src_addr,
+                     &src_addr_len); //receive answer
+            tstamp destination = get_time();              //get "destination" clock
+            //parse the message
+            msg->header = buffer[0];
+            msg->stratum = buffer[1];
+            msg->poll = buffer[2];
+            msg->precision = buffer[3];
+            msg->delay = char_to_tdist(buffer, 4);
+            msg->dispersion = char_to_tdist(buffer, 8);
 
-                msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) +
-                                    buffer[15]; //leaving like that since ref_id was meant to be a char
-                msg->reference = char_to_tstamp(buffer, 16);
-                msg->receive = char_to_tstamp(buffer, 32);
-                msg->transmit = char_to_tstamp(buffer, 40);
+            msg->reference_id = (buffer[12] << 24) + (buffer[13] << 16) + (buffer[14] << 8) +
+                                buffer[15]; //leaving like that since ref_id was meant to be a char
+            msg->reference = char_to_tstamp(buffer, 16);
+            msg->receive = char_to_tstamp(buffer, 32);
+            msg->transmit = char_to_tstamp(buffer, 40);
 
-                //            Reference Timestamp: Time when the system clock was last set or corrected, in NTP timestamp format.
-                //
-                //            Origin Timestamp (org): Time at the client when the request departed for the server, in NTP timestamp format.
-                //
-                //            Receive Timestamp (rec): Time at the server when the request arrived from the client, in NTP timestamp format.
-                //
-                //            Transmit Timestamp (xmt): Time at the server when the response left the client, in NTP timestamp format.
-                //
-                //            Destination Timestamp (dst): Time at the client when the reply arrived from the server, in NTP timestamp format.
-                //
-                //            Note: The Destination Timestamp field is not included as a header field; it is determined upon arrival of the packet and made available in the packet buffer data structure.
+            //            Reference Timestamp: Time when the system clock was last set or corrected, in NTP timestamp format.
+            //
+            //            Origin Timestamp (org): Time at the client when the request departed for the server, in NTP timestamp format.
+            //
+            //            Receive Timestamp (rec): Time at the server when the request arrived from the client, in NTP timestamp format.
+            //
+            //            Transmit Timestamp (xmt): Time at the server when the response left the client, in NTP timestamp format.
+            //
+            //            Destination Timestamp (dst): Time at the client when the reply arrived from the server, in NTP timestamp format.
+            //
+            //            Note: The Destination Timestamp field is not included as a header field; it is determined upon arrival of the packet and made available in the packet buffer data structure.
 
-                /*printf("\nTime at reference:   %f \n", LFP2D(msg->reference));
-                printf("Time at origin:      %f \n", LFP2D(origin));
-                printf("Time at receive:     %f \n", LFP2D(msg->receive));
-                printf("Time at transmit:    %f \n", LFP2D(msg->transmit));
-                printf("Time at destination: %f \n", LFP2D(destination));
-                */
-                //message parsed*/
+            /*printf("\nTime at reference:   %f \n", LFP2D(msg->reference));
+            printf("Time at origin:      %f \n", LFP2D(origin));
+            printf("Time at receive:     %f \n", LFP2D(msg->receive));
+            printf("Time at transmit:    %f \n", LFP2D(msg->transmit));
+            printf("Time at destination: %f \n", LFP2D(destination));
+            */
+            //message parsed*/
 
-                double delay = ((LFP2D(destination) - LFP2D(origin)) - (LFP2D(msg->transmit) - LFP2D(msg->receive))) /
-                               2; // - instead of  + ?
-                double offset =
-                        ((LFP2D(msg->receive) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(destination))) / 2;
+            double delay = ((LFP2D(destination) - LFP2D(origin)) - (LFP2D(msg->transmit) - LFP2D(msg->receive))) /
+                           2;
+            double offset =
+                    ((LFP2D(msg->receive) - LFP2D(origin)) + (LFP2D(msg->transmit) - LFP2D(destination))) / 2;
 //            printf("Delay: %.9f \n", delay);
 //            printf("Offset: %.9f \n", offset);
-                //printf("root_dispersion: %.9f \n", LFP2D(msg->dispersion));
+            //printf("root_dispersion: %.9f \n", LFP2D(msg->dispersion));
 
-                sum_of_delay += delay;
-                sum_of_offset += offset;
-                sum_of_root_dispersion += LFP2D(msg->dispersion);
+            sum_of_delay[j] += delay;
+            sum_of_offset[j] += offset;
+            sum_of_root_dispersion[j] += LFP2D(msg->dispersion);
 
-                if (j == 0 && i == 0) {
-                    max_delay = delay;
-                    min_delay = delay;
-                } else {
-                    if (delay > max_delay)
-                        max_delay = delay;
-                    if (delay < min_delay)
-                        min_delay = delay;
-                }
-                printf("\n%s,%.9f,%.9f,%u\n", server[j], offset, delay, msg->dispersion);
-
+            if (x == 0) {
+                max_delay[j] = delay;
+                min_delay[j] = delay;
+            } else {
+                if (delay > max_delay[j])
+                    max_delay[j] = delay;
+                if (delay < min_delay[j])
+                    min_delay[j] = delay;
             }
+	if (offset < -100000)
+		printf("%s,%.9f,%.9f,%u\n", server[j], (double) 0, (double) 0, 0);
+	else	
+            printf("%s,%.9f,%.9f,%u\n", server[j], offset, delay, msg->dispersion);
 
-            double root_dispersion = sum_of_root_dispersion / i;
-            dispersion = max_delay - min_delay;
-            double dispersion_criteria = root_dispersion + dispersion;
+
+//        printf("best_server_dispersion: %.9f\n", best_server_dispersion);
+
+//        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / i, dispersion, sum_of_delay / i,sum_of_offset / i);
+            close(client_socket);
+        }
+        sleep(6);
+    }
+
+    for (i = 0; i < number_of_servers; i++) {
+        double root_dispersion = sum_of_root_dispersion[i] / 100;
+        double dispersion = max_delay[i] - min_delay[i];
+        double dispersion_criteria = root_dispersion + dispersion;
 //        printf("\nnumber of answered queries: %i\n", i);
 //        printf("dispersion: %.9f \n", dispersion);
 //        printf("root_dispersion: %.9f \n", root_dispersion);
@@ -226,25 +241,23 @@ int main(int argc, char *argv[]) {
 //        printf("sum delay:  %.9f\n", sum_of_delay);
 //        printf("sum root_dispersion:  %f\n", sum_of_root_dispersion);
 //        printf("dispersion_criteria: %f\n", dispersion_criteria);
-            //choose best server
-            if (j == 0) {
+        //choose best server
+        if (i == 0) {
+            best_server_dispersion = dispersion_criteria;
+            best_server = server[i];
+            average_offset = sum_of_offset[i] / 100; //TODO 100 geht davon aus, dass alle erfolgreich waren. macht es einen Unterschied?
+        } else {
+            if (dispersion_criteria < best_server_dispersion) {
                 best_server_dispersion = dispersion_criteria;
-                best_server = server[j];
-                average_offset = sum_of_offset / i;
-            } else {
-                if (dispersion_criteria < best_server_dispersion) {
-                    best_server_dispersion = dispersion_criteria;
-                    best_server = server[j];
-                    average_offset = sum_of_offset / i;
-                }
+                best_server = server[i];
+                average_offset = sum_of_offset[i] / 100;
             }
-//        printf("best_server_dispersion: %.9f\n", best_server_dispersion);
-
-//        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / i, dispersion, sum_of_delay / i,sum_of_offset / i);
-            close(client_socket);
         }
-        sleep(6);
     }
+    //        printf("best_server_dispersion: %.9f\n", best_server_dispersion);
+
+//        printf("\n{%s} {%.9f} {%.9f} {%.9f} {%.9f}\n", server[j], sum_of_root_dispersion / i, dispersion, sum_of_delay / i,
+
     //TODO not tested and might not be right values
     tstamp local = get_time();
 //    printf("chosen server: %s\n", best_server);
