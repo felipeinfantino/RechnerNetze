@@ -1,0 +1,52 @@
+
+a)	Wie viele Pakete umfasst der Trace?
+
+15892
+
+b)	Wie groß sind die Pakete im Durchschnitt?
+
+
+
+c)	Notieren Sie alle im Trace auftauchenden MAC-Adressen.
+
+d)	Wie viele IP-Adressen tauchen im Trace auf?
+
+e)	Einige der auftauchenden MAC-Adressen sind mit IP-Adressen verknupft¨. Notieren sie diese Verknupfungen¨.
+
+f)	Bei welchem Anteil der Pakete wird das Internet Protocol (IP) auf der Vermittlungs/Netzwerkschicht (ISO/OSI Modell) verwendet?
+
+g)	Bei welchem Anteil der Pakete wird das Transmission Control Protocol (TCP) auf der Trans-portschicht verwendet?
+
+h)	Notieren Sie alle Protokolle der Applikationsschicht die TCP nutzen.
+
+i)	Notieren Sie alle Protokolle der Applikationsschicht die das User Datagram Protocol (UDP) nutzen.
+
+j)	Notieren sie alle auftauchenden Protokolle der Vermittlungs/Netzwerkschicht.
+
+k)	Notieren sie alle auftauchenden Protokolle der Sicherungsschicht.
+
+l)	Wie viele Domain Name System (DNS)-Abfragen fanden statt?
+
+m)	Wie viele IP-Pakete haben einen “Time-To-Live” (TTL) Wert großer¨ als 200, mit genau 128 und mit genau 64? Versuchen sie, eine Erklarung¨ fur¨ die gefundene Verteilung zu finden.
+
+n)	Untersuchen Sie das 16. Paket im Trace genauer:
+
+    1.	Wie groß ist der Ethernet-Header?
+
+    2.	Wie groß ist der IP-Header?
+
+    3.	Wie groß ist das IP-Datagram?
+
+    4.	Wie groß ist der TCP-Header?
+
+    5.	Wie groß ist das TCP-Segment?
+
+o)	Erstellen Sie ein Histogramm uber¨ die Lange¨ der IP-Datagramme. Interpretieren Sie das Ergebnis.
+
+p)	Zwischen welchen IP-Adressen werden die meisten Bytes ausgetauscht? Erstellen Sie ein His-togramm uber¨ die Lange¨ dieser IP-Datagramme. Interpretieren Sie das Ergebnis.
+
+q)	Zwischen welchen IP-Adressen werden die meisten Pakete ausgetauscht?
+
+r)	Bestand eine verschlusselte¨ Verbindung? Notieren Sie ggf. die beteiligten Hosts.
+
+s)	Wurde ein Web-Browser benutzt? Wenn ja, welche?
