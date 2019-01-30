@@ -12,7 +12,7 @@ c)	Notieren Sie alle im Trace auftauchenden MAC-Adressen.
 00:0c:29:b6:b5:48
 00:50:56:c0:00:08
 00:50:56:f3:f2:f6
-01:00:5e:00:00:fc
+01:00:5e:00:00:fc   
 33:33:00:01:00:03
 ff:ff:ff:ff:ff:ff
 
@@ -127,11 +127,11 @@ n)	Untersuchen Sie das 16. Paket im Trace genauer:
     2.	Wie groß ist der IP-Header?
     20 Bytes
     3.	Wie groß ist das IP-Datagram?
-    193 Bytes
+    173 Bytes
     4.	Wie groß ist der TCP-Header?
     20 Bytes
     5.	Wie groß ist das TCP-Segment?
-    153 Bytes
+    133 Bytes
     
 o)	Erstellen Sie ein Histogramm über die Lange der IP-Datagramme. Interpretieren Sie das Ergebnis.
 
@@ -169,5 +169,5 @@ Ja, folgende Hosts haben das Protokoll TLSv1.2 benutzt:
 s)	Wurde ein Web-Browser benutzt? Wenn ja, welche?
 Mit command tshark -r aufgabe5.pcapng -Y http.request -T fields -e http.user_agent
 Zu sehen sind
-- Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.89 Safari/537.36
-- Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.115 Safari/537.36
+Chrome 41 on Windows 7
+Chrome 40 on Mac OS X (Yosemite)
