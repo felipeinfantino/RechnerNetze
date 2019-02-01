@@ -1,14 +1,11 @@
-
-a)	Wie viele Pakete umfasst der Trace?
-
+﻿a)	Wie viele Pakete umfasst der Trace?
 15892
 
 b)	Wie groß sind die Pakete im Durchschnitt?
-
 897.98 Bytes
 
 c)	Notieren Sie alle im Trace auftauchenden MAC-Adressen.
-
+Es gibt 6 MAC-Adressen:
 00:0c:29:b6:b5:48
 00:50:56:c0:00:08
 00:50:56:f3:f2:f6
@@ -17,104 +14,51 @@ c)	Notieren Sie alle im Trace auftauchenden MAC-Adressen.
 ff:ff:ff:ff:ff:ff
 
 d)	Wie viele IP-Adressen tauchen im Trace auf?
-
 Es gibt 53 IPv4 und 2 IPv6 Adressen.
-8.8.8.8
-23.21.60.15
-23.192.162.171
-23.205.82.104
-23.205.92.118
-31.13.93.3
-37.252.163.152
-37.252.163.209
-54.192.79.107
-54.225.150.134
-54.227.250.135
-54.230.78.45
-54.231.10.92
-54.231.32.188
-54.241.5.77
-54.241.33.115
-81.166.122.238
-85.17.147.182
-88.221.83.58
-88.221.83.67
-88.221.83.73
-88.221.83.80
-93.184.220.188
-104.16.12.8
-104.16.13.8
-172.16.254.1
-172.16.254.2
-172.16.254.128
-172.16.254.255
-173.194.42.215
-173.194.65.94
-174.129.223.41
-176.34.254.176
-190.93.242.118
-195.54.48.9
-198.41.208.122
-198.41.208.145
-198.41.208.146
-198.41.208.147
-198.41.209.141
-198.41.209.145
-199.16.156.21
-199.96.57.6
-216.58.208.196
-216.58.208.202
-216.58.208.206
-216.58.208.225
-216.58.208.226
-216.58.208.227
-216.58.208.237
-216.58.208.238
-216.58.211.74
-224.0.0.252
-fe80::8132:71df:11ee:a6b8
-ff02::1:3
+
 
 e)	Einige der auftauchenden MAC-Adressen sind mit IP-Adressen verknüpft. Notieren sie diese Verknüpfungen..
-
-(filter for ARP, then get target_mac_address and target_ip_address (same for source))
-MAC - IP
+				MAC - IP
 00:0c:29:b6:b5:48   -   172.16.254.128
 00:50:56:f3:f2:f6   -   172.16.254.2
 
 
 f)	Bei welchem Anteil der Pakete wird das Internet Protocol (IP) auf der Vermittlungs/Netzwerkschicht (ISO/OSI Modell) verwendet?
-(filter = ip, filter = ipv6)
-15841 IPv4 + 2 IPv6 = 15843 / 15892 = 99,7%
+15841 IPv4 + 2 IPv6 = 15843 IP 
+15843 IP / 15892 Packets = 99,7%
+Das IP Protocol wird bei 99,7% Pakete verwendet.
 
 g)	Bei welchem Anteil der Pakete wird das Transmission Control Protocol (TCP) auf der Transportschicht verwendet?
-(filter = tcp)
-15611 / 15892 = 98,2%
+15611 TCP / 15892 Packets  = 98,2%
+Das TCP Protocol wird bei 98,2% Pakete verwendet.
+
 h)	Notieren Sie alle Protokolle der Applikationsschicht die TCP nutzen.
 (filter = tcp , then sort by Protocol and write down every single one (alternatively Statistics-> Protocol hierarchy))
 TLSv1.2
 HTTP
+Data "protocol" - Ein Protokoll, das Wireshark entweder nicht (mehr) unterstuetzt oder nicht erkennt.
+
 i)	Notieren Sie alle Protokolle der Applikationsschicht die das User Datagram Protocol (UDP) nutzen.
-(filter = udp , then sort by Protocol and write down every single one (alternatively Statistics-> Protocol hierarchy))
-NBNS
-LLMNR
+NBNS (Netbios Name Service)
+LLMNR (Link-local Multicast Name Resolution)
 DNS
-DB-LSP-DISC
+DB-LSP-DISC (Dropbox LAN sync Discovery Protocol)
+
 j)	Notieren sie alle auftauchenden Protokolle der Vermittlungs/Netzwerkschicht.
 (Statistics -> Protocol hierarchy)
 UDP
 TCP
+
 k)	Notieren sie alle auftauchenden Protokolle der Sicherungsschicht.
 Ethernet
+
 l)	Wie viele Domain Name System (DNS)-Abfragen fanden statt?
-(dns)
-195
+Es gab 97 DNS Abfragen.
+
 m)	Wie viele IP-Pakete haben einen “Time-To-Live” (TTL) Wert größer als 200, mit genau 128 und mit genau 64? Versuchen sie, eine Erklarung¨ fur¨ die gefundene Verteilung zu finden.
-(ip.ttl == 64 or ip.ttl==128 or ip.ttl == 64 or ip.ttl==128 or ip.ttl>200)
-größer als 200 - 0
 genau 64 - 6
 genau 128 - 15833
-Insgesamt: 15839
+größer als 200 - 0
 
 64 - same region by convention 
 128 - same continent 
@@ -136,14 +80,13 @@ n)	Untersuchen Sie das 16. Paket im Trace genauer:
 o)	Erstellen Sie ein Histogramm über die Lange der IP-Datagramme. Interpretieren Sie das Ergebnis.
 
 p)	Zwischen welchen IP-Adressen werden die meisten Bytes ausgetauscht? Erstellen Sie ein Histogramm über die Lange¨ dieser IP-Datagramme. Interpretieren Sie das Ergebnis.
-Statistics/conversations und dort in Ipv4 ist offensichtlich dass zwischen
-81.166.122.238 und 172.16.254.128 die meisten Pakete aufgetaucht wurden.
+Zwischen 81.166.122.238 und 172.16.254.128 die meisten Bytes [Insgesammt circa 10 MBytes] ausgetauscht wurden.
 172.16.254.128 - IP address of device in local network
 
 
+
 q)	Zwischen welchen IP-Adressen werden die meisten Pakete ausgetauscht?
-Statistics/conversations und dort in Ipv4 ist offensichtlich dass zwischen
-81.166.122.238 und 172.16.254.128 die meisten Pakete aufgetaucht wurden.
+Zwischen 81.166.122.238 und 172.16.254.128 die meisten Pakete aufgetaucht wurden.
 172.16.254.128 - IP address of device in local network
 
 
@@ -167,7 +110,6 @@ Ja, folgende Hosts haben das Protokoll TLSv1.2 benutzt:
 216.58.208.238
 
 s)	Wurde ein Web-Browser benutzt? Wenn ja, welche?
-Mit command tshark -r aufgabe5.pcapng -Y http.request -T fields -e http.user_agent
-Zu sehen sind
+Zu sehen sind:
 Chrome 41 on Windows 7
 Chrome 40 on Mac OS X (Yosemite)
