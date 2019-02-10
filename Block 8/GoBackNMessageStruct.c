@@ -13,7 +13,7 @@ GoBackNMessageStruct* allocateGoBackNMessageStruct(size_t dataSize) {
 void freeGoBackNMessageStruct(GoBackNMessageStruct* msg) { free(msg); }
 
 uint32_t crcGoBackNMessageStruct(GoBackNMessageStruct* msg) {
-  uint32_t crc;
+  uint32_t crc = 0;
   crc32((void*)msg, (size_t)msg->size, &crc);
 
   return (crc);

@@ -42,9 +42,9 @@
 
 struct timeval timeout;
 unsigned window;
-char* remotePort;
-char* remoteName;
-char* fileName;
+char *remotePort;
+char *remoteName;
+char *fileName;
 DataBuffer dataBuffer;
 
 long lastAckSeqNo;
@@ -52,7 +52,8 @@ long nextSendSeqNo;
 
 struct timeval timerExpiration;
 
-void help(int exitCode) {
+void help(int exitCode)
+{
   fprintf(stderr,
           "GoBackNSender [--timeout|-t msec] [--window|-w count] [--remote|-r "
           "port] hostname file\n");
@@ -60,7 +61,8 @@ void help(int exitCode) {
   exit(exitCode);
 }
 
-void initialize(int argc, char** argv) {
+void initialize(int argc, char **argv)
+{
   timeout.tv_sec = 3;
   timeout.tv_usec = 0;
 
@@ -70,7 +72,8 @@ void initialize(int argc, char** argv) {
   window = 25;
   remotePort = DEFAULT_REMOTE_PORT;
 
-  while (1) {
+  while (1)
+  {
     static struct option long_options[] = {{"timeout", 1, NULL, 't'},
                                            {"window", 1, NULL, 'w'},
                                            {"remote", 1, NULL, 'r'},
@@ -78,41 +81,48 @@ void initialize(int argc, char** argv) {
                                            {0, 0, 0, 0}};
 
     int c = getopt_long(argc, argv, "t:w:r:h", long_options, NULL);
-    if (c == -1) break;
+    if (c == -1)
+      break;
 
     int retval = 0;
-    switch (c) {
-      case 't': {
-        unsigned msec;
-        retval = sscanf(optarg, "%u", &msec);
-        if (retval < 1) help(1);
-        timeout.tv_sec = msec / 1000;
-        timeout.tv_usec = (msec % 1000) * 1000;
-      } break;
-
-      case 'w':
-        retval = sscanf(optarg, "%u", &window);
-        if (retval < 1) help(1);
-        break;
-
-      case 'r':
-        remotePort = optarg;
-        break;
-
-      case 'h':
-        help(0);
-        break;
-
-      case '?':
+    switch (c)
+    {
+    case 't':
+    {
+      unsigned msec;
+      retval = sscanf(optarg, "%u", &msec);
+      if (retval < 1)
         help(1);
-        break;
+      timeout.tv_sec = msec / 1000;
+      timeout.tv_usec = (msec % 1000) * 1000;
+    }
+    break;
 
-      default:
-        printf("?? getopt returned character code 0%o ??\n", c);
+    case 'w':
+      retval = sscanf(optarg, "%u", &window);
+      if (retval < 1)
+        help(1);
+      break;
+
+    case 'r':
+      remotePort = optarg;
+      break;
+
+    case 'h':
+      help(0);
+      break;
+
+    case '?':
+      help(1);
+      break;
+
+    default:
+      printf("?? getopt returned character code 0%o ??\n", c);
     }
   }
 
-  if (argc < optind + 2 || window <= 0) help(1);
+  if (argc < optind + 2 || window <= 0)
+    help(1);
 
   remoteName = argv[optind];
   fileName = argv[optind + 1];
@@ -122,10 +132,11 @@ void initialize(int argc, char** argv) {
   lastAckSeqNo = nextSendSeqNo = 0;
 }
 
-bool readIntoBuffer(FILE* file, long seqNo) {
-  DataPacket* dataPacket = (DataPacket*)malloc(sizeof(DataPacket));
+bool readIntoBuffer(FILE *file, long seqNo)
+{
+  DataPacket *dataPacket = (DataPacket *)malloc(sizeof(DataPacket));
 
-  dataPacket->packet = (GoBackNMessageStruct*)malloc(
+  dataPacket->packet = (GoBackNMessageStruct *)malloc(
       sizeof(GoBackNMessageStruct) + DEFAULT_PAYLOAD_SIZE);
   dataPacket->packet->seqNo = seqNo;
   dataPacket->packet->seqNoExpected = -1;
@@ -138,12 +149,15 @@ bool readIntoBuffer(FILE* file, long seqNo) {
 
   dataPacket->packet->crcSum = crcGoBackNMessageStruct(dataPacket->packet);
 
-  if (bytesRead < DEFAULT_PAYLOAD_SIZE) {
-    if (ferror(file)) {
+  if (bytesRead < DEFAULT_PAYLOAD_SIZE)
+  {
+    if (ferror(file))
+    {
       perror("fread");
       exit(1);
     }
-    if (bytesRead == 0) {
+    if (bytesRead == 0)
+    {
       putDataPacketIntoBuffer(dataBuffer, dataPacket);
       return false;
     }
@@ -153,22 +167,26 @@ bool readIntoBuffer(FILE* file, long seqNo) {
   return true;
 }
 
-long readFileIntoBuffer() {
+long readFileIntoBuffer()
+{
   long seqNo = 0;
 
-  FILE* input = fopen(fileName, "rb");
-  if (input == NULL) {
+  FILE *input = fopen(fileName, "rb");
+  if (input == NULL)
+  {
     perror("fopen");
     exit(1);
   }
 
-  while (readIntoBuffer(input, seqNo)) ++seqNo;
+  while (readIntoBuffer(input, seqNo))
+    ++seqNo;
   fclose(input);
 
   return seqNo;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   // parse command line arguments
   initialize(argc, argv);
 
@@ -180,11 +198,13 @@ int main(int argc, char** argv) {
   // We use "connect()" here because we have only one receiver.
   // Despite using UDP, you will have to use send()/recv() later!
   int s = udp_connect(remoteName, remotePort);
-  if (s < 0) {
+  if (s < 0)
+  {
     exit(1);
   }
 
-  while (/* YOUR TASK: When are we finished? */) {
+  while (lastAckSeqNo < veryLastSeqNo + 1)
+  {
     DEBUGOUT("nextSendSeqNo: %ld, lastAckSeqNo: %ld\n", nextSendSeqNo,
              lastAckSeqNo);
 
@@ -195,12 +215,14 @@ int main(int argc, char** argv) {
 
     if (nextSendSeqNo <= veryLastSeqNo &&
         nextSendSeqNo <= getLastSeqNoOfBuffer(dataBuffer) &&
-        nextSendSeqNo < lastAckSeqNo + window) {
+        nextSendSeqNo < lastAckSeqNo + window)
+    {
       FD_SET(s, &writefds);
     }
 
     struct timeval selectTimeout, currentTime;
-    if (gettimeofday(&currentTime, NULL) < 0) {
+    if (gettimeofday(&currentTime, NULL) < 0)
+    {
       perror("gettimeofday");
       exit(1);
     }
@@ -208,26 +230,30 @@ int main(int argc, char** argv) {
              currentTime.tv_usec);
     timersub(&timerExpiration, &currentTime, &selectTimeout);
 
-    if (selectTimeout.tv_sec < 0 || selectTimeout.tv_usec < 0) {
+    if (selectTimeout.tv_sec < 0 || selectTimeout.tv_usec < 0)
+    {
       fprintf(stderr, "WARNING: Timeout was negative (%ld,%ld)\n",
               selectTimeout.tv_sec, selectTimeout.tv_usec);
       selectTimeout.tv_sec = selectTimeout.tv_usec = 0;
     }
 
     int n;
-    if ((n = select(s + 1, &readfds, &writefds, NULL, &selectTimeout)) < 0) {
+    if ((n = select(s + 1, &readfds, &writefds, NULL, &selectTimeout)) < 0)
+    {
       perror("select");
       exit(1);
     }
 
     // Handle acknowledgements
-    if (FD_ISSET(s, &readfds)) {
+    if (FD_ISSET(s, &readfds))
+    {
       uint32_t tmpCRC = 0;
       bool crcValid;
       int bytesRead = 0;
 
-      GoBackNMessageStruct* ack = allocateGoBackNMessageStruct(0);
-      if ((bytesRead = recv(s, ack, sizeof(*ack), MSG_DONTWAIT)) < 0) {
+      GoBackNMessageStruct *ack = allocateGoBackNMessageStruct(0);
+      if ((bytesRead = recv(s, ack, sizeof(*ack), MSG_DONTWAIT)) < 0)
+      {
         perror("recv");
         exit(1);
       }
@@ -252,19 +278,37 @@ int main(int argc, char** argv) {
        * - freeBuffer()
        * - getDataPacketFromBuffer()
        */
+      if (crcValid)
+      {
+        printf("ackseqNo: %ld\n", (long)ack->seqNoExpected);
+        if (ack->seqNoExpected - 1 > (lastAckSeqNo)-1)
+        {
 
+          freeBuffer(dataBuffer, (lastAckSeqNo), (ack->seqNoExpected) - 1);
+          lastAckSeqNo = ack->seqNoExpected;
+          if (lastAckSeqNo == nextSendSeqNo)
+
+            timerExpiration.tv_sec = LONG_MAX;
+
+          else
+
+            timerExpiration = getDataPacketFromBuffer(dataBuffer, lastAckSeqNo)->timeout;
+        }
+      }
       /* END YOUR TASK */
       freeGoBackNMessageStruct(ack);
     }
 
     // Handle timeout
-    if (gettimeofday(&currentTime, NULL) < 0) {
+    if (gettimeofday(&currentTime, NULL) < 0)
+    {
       perror("gettimeofday");
       exit(1);
     }
     DEBUGOUT("current time: %ld,%ld\n", currentTime.tv_sec,
              currentTime.tv_usec);
-    if (timercmp(&timerExpiration, &currentTime, < )) {
+    if (timercmp(&timerExpiration, &currentTime, <))
+    {
       DEBUGOUT("TIMEOUT (Current: %ld,%ld; expiration: %ld,%ld)\n",
                currentTime.tv_sec, currentTime.tv_usec, timerExpiration.tv_sec,
                timerExpiration.tv_usec);
@@ -276,21 +320,27 @@ int main(int argc, char** argv) {
        * FUNCTIONS YOU MAY NEED:
        * - resetTimers()
        */
-
+      nextSendSeqNo = lastAckSeqNo;
+      resetTimers(dataBuffer);
+      timerExpiration.tv_sec = LONG_MAX;
       /* END YOUR TASK */
     }
 
     // Send packets
-    if (FD_ISSET(s, &writefds)) {
-      while (/* YOUR TASK: When are you allowed to send new packets? */) {
-        DataPacket* data = getDataPacketFromBuffer(dataBuffer, nextSendSeqNo);
+    if (FD_ISSET(s, &writefds))
+    {
+      while ((nextSendSeqNo < lastAckSeqNo + window) && (nextSendSeqNo < veryLastSeqNo + 1))
+      {
+        DataPacket *data = getDataPacketFromBuffer(dataBuffer, nextSendSeqNo);
 
         // Send data
         int retval = send(s, data->packet, data->packet->size, MSG_DONTWAIT);
-        if (retval < 0) {
+        if (retval < 0)
+        {
           if (errno == EAGAIN)
             break;
-          else {
+          else
+          {
             perror("send");
             exit(1);
           }
@@ -301,12 +351,13 @@ int main(int argc, char** argv) {
         /* YOUR TASK: Sending was successful, what now?
          * - Update sequence numbers
          */
-
+        nextSendSeqNo++;
         /* END YOUR TASK */
 
         // Update timers
         struct timeval currentTime;
-        if (gettimeofday(&currentTime, NULL) < 0) {
+        if (gettimeofday(&currentTime, NULL) < 0)
+        {
           perror("gettimeofday");
           exit(1);
         }
@@ -322,6 +373,9 @@ int main(int argc, char** argv) {
          * - timercmp(a, b, cmp) // NOTE: cmp is a comparison operator
          *                          like <, >, <=, >=, ==
          */
+        timeradd(&currentTime, &timeout, &data->timeout);
+        if (data->packet->seqNo == lastAckSeqNo)
+          timeradd(&currentTime, &timeout, &timerExpiration);
 
         /* END YOUR TASK */
       }
